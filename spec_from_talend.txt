@@ -1,0 +1,42 @@
+Incremental Load:
+
+- log version number
+- load config.xml:
+        - db connection
+        - gpfdist PORT!!!??? gpfdist_addr="localhost:18010"
+        - table types (e.g. full (scd), incremental
+        
+        
+- "set application_name = 'Palette Insight - Talend " + jobName  +" : "+ jobVersion + 
+- get last metadata
+- fetch metadata for current table (read sorted list by attnum)
+- make sql scripts for create table, create external table
+- make sql script for alter table add columns if the metadata has new ones (Bug?!! there is no size for e.g. varhar)
+- Check if table exists and create the DWH table if not. (The talend job exited!! -> this is for the "first time dummy load tables run")
+- Check if there is any alter table script and if it is than add DROP EXT table script into that too. Then execute these alter and drop sql scripts againts the database
+- Check if ext table needs to be recreated (because of gpfdist port change) and drop the ext table if this is the case
+- Check if ext table exists and create it if not ((String)globalMap.get("EXTtableCreate")).
+
+- List maximum 6000 csv files from upload (defult order...:P for incremental load, ) for the table, get machine name from path and move files into the processing\machine name folder
+- Manage partitions for serverlogs, threadinfo, plainglogs
+- create sql script for insert into table from ext_table and execute it
+    - IF load OK  list files in processing and move them into the archived/machine name folders
+    - IF load NOT OK move files to retry folder
+    - ON subjob ok: move files from retry to processing and try to load again
+        - IF load OK  list files in processing and move them into the archived/machine name folders
+        - IF load NOT OK move files to retried        
+            
+
+Full load:
+Apart from the steps above
+- create stage tables as well
+- slightly different logic for loading and handling foldes:
+
+    - Move files from processing to retry
+    - Check MultiPart SCD table, STOPPING!
+    - Move files from upload  (order by filename!!) to processing
+    - APPLY SCD (logic for scd. delete, insert, update, etc)
+        - IF load OK  list files in processing and move them into the archived/machine name folders
+        - IF load NOT OK move files to retry folder
+
+So here, there is no retry from the retry folder and the "stucked" fiels in processing end up the retry as well.
