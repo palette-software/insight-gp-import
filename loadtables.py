@@ -64,6 +64,7 @@ def main():
         metadata = read_metadata("metadata-2016-08-25--09-47-20--seq0000--part0000-csv-08-25--09-47-6b25c7dcb5ce6c32e452c7d32d0b7e7e.csv.gz")
 
         cre_dwh_table_query = sr.get_create_table_query(metadata, 'palette', 'threadinfo')
+        create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
 
         logging.info('End Insight GP-Import.')
     except Exception as exception:

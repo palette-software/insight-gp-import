@@ -11,7 +11,7 @@ class ColumnMetadata(object):
         self.length = 0
         self.precision = 0
 
-def get_column_def(type, length, precision):
+def get_column_full_type_def(type, length, precision):
 
     query = ""
     column_def = ""
@@ -28,7 +28,30 @@ def get_column_def(type, length, precision):
 
     return column_def
 
-def get_create_table_query(columns, schema, table):
+def get_columns_def(columns_def, schema, table, is_type_needed = True):
+
+    cols_def = "   "
+
+    for column in columns_def:
+        column_name = column.name
+        column_type = column.type
+        column_length = column.length
+        column_precision = column.precision
+
+        #e.g. for column name plus full type def: "name character varying(500)"
+        cols_def += "\"" + column_name.lower() + "\""
+        cols_def += " "
+        if is_type_needed:
+            column_def = get_column_full_type_def(column_type, column_length, column_precision)
+            cols_def += column_def
+        cols_def += "\n"
+        cols_def += " , "
+
+    cols_def = cols_def.rstrip(', ')
+
+    return cols_def
+
+def get_create_table_query(columns_def, schema, table):
 
     query = ""
 
@@ -37,22 +60,33 @@ def get_create_table_query(columns, schema, table):
     query += "."
     query += "\"" + table.lower() + "\""
     query += "\n(\n"
-    query += "   "
-
-    for column in columns:
-        column_name = column.name
-        column_type = column.type
-        column_length = column.length
-        column_precision = column.precision
-
-        query += "\"" + column_name.lower() + "\""
-        query += " "
-        column_def = get_column_def(column_type, column_length, column_precision)
-        query += column_def + "\n"
-        query += " , "
-
-    query += query.rstrip(', ') + ")"
+    query += get_columns_def(columns_def, schema, table)
+    query += ")"
     query += " WITH (appendonly=true, orientation=row, compresstype=quicklz)"
 
-    logging.debug("get_create_table_query - " + query)
+    logging.debug("get_create_table_query - \n" + query)
+    return query
+
+def get_create_external_table_query(columns_def, schema, table):
+
+    query = ""
+
+    query += " CREATE READABLE EXTERNAL TABLE "
+    query += "\"" + schema.lower() + "\""
+    query += "."
+    query += "\"ext_" + table.lower() + "\""
+    query += "\n(\n"
+    query += get_columns_def(columns_def, schema, table)
+    query += ")"
+    query += " LOCATION ('#EXTERNAL_TABLE') \n"
+    query += " FORMAT 'TEXT' \n"
+    query += " ( HEADER DELIMITER '\\013' NULL AS '\\\\N' ESCAPE AS '\\\\' \n)"
+    query += "	LOG ERRORS INTO "
+    query += "\"" + schema.lower() + "\""
+    query += "."
+    query += "\"ext_error_table\" \n"
+    query += " SEGMENT REJECT LIMIT 1000 ROWS"
+
+
+    logging.debug("getExternalCreateTableQuery - \n" + query);
     return query
