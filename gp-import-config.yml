@@ -1,0 +1,140 @@
+Version: 2.0.0
+Host: localhost
+Port: 5432
+User: palette_etl_user
+Password: palette123
+Database: palette
+Schema: palette
+gpfdist_addr: localhost:18010
+#Logfilename: /var/log/insight-gp-import/loadtables.log
+Logfilename: loadtables.log
+ConsoleLog: True
+Tables:
+  Incremental:
+    - countersamples
+    - serverlogs
+    - threadinfo
+    - plainlogs
+    - http_requests
+    - async_jobs
+    - background_jobs
+    - hist_tasks
+    - hist_datasources
+    - hist_views
+    - hist_comments
+    - hist_groups
+    - hist_projects
+    - hist_licensing_roles
+    - hist_users
+    - hist_sites
+    - hist_data_connections
+    - hist_schedules
+    - hist_workbooks
+    - historical_events
+    - hist_capabilities
+    - hist_configs
+    - hist_tags
+    - historical_disk_usage
+    - historical_event_types
+
+  Full:
+    -
+      name: users
+      pk:
+        - id
+    -
+      name: sites
+      pk:
+        - id
+    -
+      name: projects
+      pk:
+        - id
+    -
+      name: workbooks
+      pk:
+        - id
+    -
+      name: views
+      pk:
+        - id
+    -
+      name: system_users
+      pk:
+        - id
+    -
+      name: core_licenses
+      pk:
+        - machine_ip
+    -
+      name: data_connections
+      pk:
+        - id
+    -
+      name: datasources
+      pk:
+        - id
+    -
+      name: monitoring_postgresql
+      pk:
+        - pk
+    -
+      name: monitoring_dataengine
+      pk:
+        - pk
+    -
+      name: extracts
+      pk:
+        - id
+    -
+      name: groups
+      pk:
+        - id
+    -
+      name: group_users
+      pk:
+        - id
+    -
+      name: tasks
+      pk:
+        - id
+    -
+      name: schedules
+      pk:
+        - id
+    -
+      name: user_default_customized_views
+      pk:
+        - id
+    -
+      name: subscriptions_customized_views
+      pk:
+        - id
+    -
+      name: subscriptions_views
+      pk:
+        - id
+    -
+      name: subscriptions_workbooks
+      pk:
+        - id
+    -
+      name: permission_reasons
+      pk:
+        - precedence
+    -
+      name: capability_roles
+      pk:
+        - id
+    -
+      name: next_gen_permissions
+      pk:
+        - id
+    -
+      name: capabilities
+      pk:
+        - id
+    -
+      name: subscriptions
+      pk:
+        - id
