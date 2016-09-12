@@ -11967,3 +11967,39 @@
 )	LOG ERRORS INTO "palette"."ext_error_table" 
  SEGMENT REJECT LIMIT 1000 ROWS
 2016-09-12 15:06:15,582 - INFO  - loadtables - End Insight GP-Import.
+2016-09-12 16:20:10,354 - INFO  - loadtables - Start Insight GP-Import.
+2016-09-12 16:20:10,359 - DEBUG - sql_routines - get_create_table_query - 
+ CREATE TABLE "palette"."threadinfo"
+(
+   "host_name" text
+ , "process" text
+ , "ts" timestamp without time zone
+ , "pid" bigint
+ , "tid" bigint
+ , "cpu_time" bigint
+ , "poll_cycle_ts" timestamp without time zone
+ , "start_ts" timestamp without time zone
+ , "thread_count" integer
+ , "working_set" bigint
+ , "thread_level" boolean
+) WITH (appendonly=true, orientation=row, compresstype=quicklz)
+2016-09-12 16:20:10,359 - DEBUG - sql_routines - getExternalCreateTableQuery - 
+ CREATE READABLE EXTERNAL TABLE "palette"."ext_threadinfo"
+(
+   "host_name" text
+ , "process" text
+ , "ts" timestamp without time zone
+ , "pid" bigint
+ , "tid" bigint
+ , "cpu_time" bigint
+ , "poll_cycle_ts" timestamp without time zone
+ , "start_ts" timestamp without time zone
+ , "thread_count" integer
+ , "working_set" bigint
+ , "thread_level" boolean
+) LOCATION ('#EXTERNAL_TABLE') 
+ FORMAT 'TEXT' 
+ ( HEADER DELIMITER '\013' NULL AS '\\N' ESCAPE AS '\\' 
+)	LOG ERRORS INTO "palette"."ext_error_table" 
+ SEGMENT REJECT LIMIT 1000 ROWS
+2016-09-12 16:20:10,359 - INFO  - loadtables - End Insight GP-Import.
