@@ -11,7 +11,7 @@ import shutil
 
 FATAL_ERROR = 49
 
-def get_last_metadata_file():
+def get_latest_metadata_file():
     metadata_files = []
     for root, dirs, files in os.walk("./uploads"):
         for file in files:
@@ -19,7 +19,14 @@ def get_last_metadata_file():
                 metadata_files.append(file)
 
     metadata_files.sort(reverse=True)
-    return metadata_files
+    
+    #Get The full path for the latest metadata
+    for root, dirs, files in os.walk("./uploads"):
+        for file in files:
+            if file == metadata_files[0]:
+                return os.path.join(root, file)
+
+
 
 def load_config(filename):
     with open(filename) as config_file:
@@ -66,6 +73,25 @@ def read_metadata(filename):
 
     return columns
 
+def move_files_between_folders(f_from, f_to, filename_pattern):
+
+    file_move_cnt = 0
+    for root, dirs, files in os.walk("./" + f_from):
+        for file in files:
+            if re.match(filename_pattern, file) is not None:
+                src = os.path.join(root, file)
+                if f_from == "uploads":
+                    trg = os.path.join(root, file).replace("./uploads" + os.path.sep + "public" + os.path.sep, "./" + f_to + os.path.sep)
+                else:
+                    trg = os.path.join(root, file).replace("./" + f_from + os.path.sep, "./" + f_to + os.path.sep)
+
+                os.makedirs(os.path.dirname(trg), exist_ok = True)
+                shutil.move(src, trg)
+                file_move_cnt += 1
+
+    logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to));
+
+
 def main():
     try:
         config_filename = sys.argv[1]
@@ -78,7 +104,10 @@ def main():
 
         db = Database(config)
 
-        metadata = read_metadata("metadata-2016-08-25--09-47-20--seq0000--part0000-csv-08-25--09-47-6b25c7dcb5ce6c32e452c7d32d0b7e7e.csv.gz")
+        latest_metadata_file =  get_latest_metadata_file()
+        logging.debug("Metadata file: " + latest_metadata_file)
+
+        metadata = read_metadata(latest_metadata_file)
 
         # cre_dwh_table_query = sr.get_create_table_query(metadata, 'palette', 'threadinfo')
         # create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
@@ -87,9 +116,11 @@ def main():
         # print(sr.if_table_exists(db, 'palette', 'threadinfo'))
         # sr.create_table_if_not_exists(db, 'palette', 'threadinfo', metadata)
 
-        #shutil.move("./kgz.txt", "./cica/kgz.txt")
+        move_files_between_folders('uploads', 'processing', 'threadinfo-.*csv.gz')
+        #move_files_between_folders('processing', 'archived', 'threadinfo-.*csv.gz')
+        #move_files_between_folders('processing', 'retry', 'threadinfo-.*csv.gz')
+        #move_files_between_folders('retry', 'retried', 'threadinfo-.*csv.gz')
 
-        print(get_last_metadata_file())
 
         logging.info('End Insight GP-Import.')
 
