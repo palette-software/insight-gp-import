@@ -4,6 +4,7 @@ import yaml
 import sys
 import gzip
 import sql_routines as sr
+from database import Database
 
 FATAL_ERROR = 49
 
@@ -59,14 +60,23 @@ def main():
 
         setup_logging(config['Logfilename'], config['ConsoleLog'])
 
+
         logging.info('Start Insight GP-Import.')
+
+        db = Database(config)
 
         metadata = read_metadata("metadata-2016-08-25--09-47-20--seq0000--part0000-csv-08-25--09-47-6b25c7dcb5ce6c32e452c7d32d0b7e7e.csv.gz")
 
-        cre_dwh_table_query = sr.get_create_table_query(metadata, 'palette', 'threadinfo')
-        create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
+        # cre_dwh_table_query = sr.get_create_table_query(metadata, 'palette', 'threadinfo')
+        # create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
+        # print(sr.get_table_columns_def_from_db(db, 'palette', 'serverlogs'))
+        # print(sr.has_ext_table_structure_changed(db, 'palette', 'threadinfo', metadata))
+        # print(sr.if_table_exists(db, 'palette', 'threadinfo'))
+        sr.create_table_if_not_exists(db, 'palette', 'threadinfo', metadata)
+
 
         logging.info('End Insight GP-Import.')
+
     except Exception as exception:
         logging.log(FATAL_ERROR, 'Unhandled exception occurred: {}'.format(exception))
         raise
