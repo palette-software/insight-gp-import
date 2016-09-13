@@ -65,7 +65,7 @@ def table_exists(db, schema, table):
 
 
 def create_table_if_not_exists(db, schema, table, columns_def):
-    #if not table_exists(db, schema, table):
+    if not table_exists(db, schema, table):
         sql = getSQL(columns_def, schema, table, 'yes', ['id'], '2016-06-08 13:22:15')['DWHtableCreate']
         print(sql)
 

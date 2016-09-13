@@ -5,8 +5,21 @@ import sys
 import gzip
 import sql_routines as sr
 from database import Database
+import os
+import re
+import shutil
 
 FATAL_ERROR = 49
+
+def get_last_metadata_file():
+    metadata_files = []
+    for root, dirs, files in os.walk("./uploads"):
+        for file in files:
+            if re.match("metadata-.*csv.gz", file) is not None:
+                metadata_files.append(file)
+
+    metadata_files.sort(reverse=True)
+    return metadata_files
 
 def load_config(filename):
     with open(filename) as config_file:
@@ -72,8 +85,11 @@ def main():
         # print(sr.get_table_columns_def_from_db(db, 'palette', 'serverlogs'))
         # print(sr.has_ext_table_structure_changed(db, 'palette', 'threadinfo', metadata))
         # print(sr.if_table_exists(db, 'palette', 'threadinfo'))
-        sr.create_table_if_not_exists(db, 'palette', 'threadinfo', metadata)
+        # sr.create_table_if_not_exists(db, 'palette', 'threadinfo', metadata)
 
+        #shutil.move("./kgz.txt", "./cica/kgz.txt")
+
+        print(get_last_metadata_file())
 
         logging.info('End Insight GP-Import.')
 
