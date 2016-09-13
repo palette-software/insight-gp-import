@@ -10,6 +10,8 @@ class Database(object):
         self.schema_name = kwargs['Schema']
 
     def execute_in_transaction(self, query, params):
+        logging.debug(query)
+        logging.debug(params)
         with self.connection as connection:
             with connection.cursor() as cursor:
                 result = self.__execute(cursor, query, params)

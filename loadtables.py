@@ -92,6 +92,25 @@ def move_files_between_folders(f_from, f_to, filename_pattern):
     logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to));
 
 
+
+def load_data(db, metadata, schema, table):
+
+    logging.info("Start loading data from external table - {}".format(table))
+
+    move_files_between_folders("uploads", "processing", table + ".*csv.gz")
+
+    query = "INSERT INTO {schema_name}.{table_name} ( " + \
+            sr.get_columns_def(metadata, schema, table, False) + \
+            " ) " \
+            "SELECT " + sr.get_columns_def(metadata, schema, table, False) + \
+            " FROM {schema_name}.ext_{table_name}"
+
+    query = query.format(schema_name = schema, table_name = table)
+    db.execute_in_transaction(query, None)
+
+    logging.info("End loading data from external table - {}".format(table))
+
+
 def main():
     try:
         config_filename = sys.argv[1]
@@ -116,11 +135,7 @@ def main():
         # print(sr.if_table_exists(db, 'palette', 'threadinfo'))
         # sr.create_table_if_not_exists(db, 'palette', 'threadinfo', metadata)
 
-        move_files_between_folders('uploads', 'processing', 'threadinfo-.*csv.gz')
-        #move_files_between_folders('processing', 'archived', 'threadinfo-.*csv.gz')
-        #move_files_between_folders('processing', 'retry', 'threadinfo-.*csv.gz')
-        #move_files_between_folders('retry', 'retried', 'threadinfo-.*csv.gz')
-
+        load_data(db, metadata, 'palette', 'threadinfo')
 
         logging.info('End Insight GP-Import.')
 
@@ -131,4 +146,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
