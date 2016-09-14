@@ -12,3 +12,4 @@ __pycache__/
 
 # vim files
 *.swp
+metadata*

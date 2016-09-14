@@ -108,7 +108,14 @@ def get_columns_def(columns_def, schema, table, is_type_needed = True):
         cols_def += "\n"
         cols_def += " , "
 
-    cols_def = cols_def.rstrip(', ')
+    #cols_def = cols_def.rstrip(', ')
+
+    if is_type_needed:
+        cols_def += "\"p_filepath\" varchar (500)\n"
+        cols_def += " , \"p_cre_date\" timestamp without time zone \n"
+    else:
+        cols_def += "\"p_filepath\"\n"
+        cols_def += " , \"p_cre_date\" \n"
 
     return cols_def
 

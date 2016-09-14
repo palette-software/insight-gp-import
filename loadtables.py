@@ -99,10 +99,11 @@ def load_data(db, metadata, schema, table):
 
     move_files_between_folders("uploads", "processing", table + ".*csv.gz")
 
-    query = "INSERT INTO {schema_name}.{table_name} ( " + \
+    query = "INSERT INTO {schema_name}.{table_name} ( \n" + \
             sr.get_columns_def(metadata, schema, table, False) + \
-            " ) " \
-            "SELECT " + sr.get_columns_def(metadata, schema, table, False) + \
+            " ) \n" \
+            "SELECT \n" + \
+                sr.get_columns_def(metadata, schema, table, False) + \
             " FROM {schema_name}.ext_{table_name}"
 
     query = query.format(schema_name = schema, table_name = table)
