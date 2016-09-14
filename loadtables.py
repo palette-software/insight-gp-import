@@ -8,8 +8,14 @@ from database import Database
 import os
 import re
 import shutil
+from time import sleep
 
 FATAL_ERROR = 49
+
+
+class PaletteFileParseError(Exception):
+    pass
+
 
 def get_latest_metadata_file():
     metadata_files = []
@@ -68,13 +74,14 @@ def read_metadata(filename):
     with gzip.open(filename, 'rt') as metadata_file:
         for line in metadata_file:
             parsed_line = line.strip('\n').split("\013")
-            if parsed_line[1] == 'threadinfo':
+            if parsed_line[1] == 'users':
                 columns.append(parsed_line_to_metadata_obj(parsed_line))
+    # TODO sort by attnum
 
     return columns
 
 def move_files_between_folders(f_from, f_to, filename_pattern):
-
+    # TODO: only copy 6000 files at a time
     file_move_cnt = 0
     for root, dirs, files in os.walk("./" + f_from):
         for file in files:
@@ -99,18 +106,18 @@ def manage_partitions(db, schema, table):
         db.execute_in_transaction(query)
 
 
-def insert_data_from_external_table(db, schema, table, metadata):
+def insert_data_from_external_table(db, schema, metadata, src_table, trg_table):
 
-    query = "INSERT INTO {schema_name}.{table_name} ( \n" + \
-            sr.get_columns_def(metadata, schema, table, False) + \
+    query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
+            sr.get_columns_def(metadata, schema, src_table, False) + \
             " ) \n" \
             "SELECT \n" + \
-                sr.get_columns_def(metadata, schema, table, False) + \
-            " FROM {schema_name}.ext_{table_name}"
+                sr.get_columns_def(metadata, schema, src_table, False) + \
+            " FROM {schema_name}.ext_{src_table_name}"
 
-    query = query.format(schema_name = schema, table_name = table)
+    query = query.format(schema_name = schema, src_table_name = src_table, trg_table_name = trg_table)
     result = db.execute_non_query_in_transaction(query)
-    logging.info("Populated Table = {}, Inserted = {}".format(table, result))
+    logging.info("Populated Table = {}, Inserted = {}".format(trg_table, result))
 
 
 def load_data(db, metadata, schema, table):
@@ -118,7 +125,9 @@ def load_data(db, metadata, schema, table):
     logging.info("Start loading data from external table - {}".format(table))
 
     try:
-        # move_files_between_folders("processing", "retry", table + ".*csv.gz")
+        pass
+        # move_files_between_folders("processing", "retry", table +
+        # ".*csv.gz")
 
         #move_files_between_folders("uploads", "processing", table + ".*csv.gz")
         #manage_partitions(db, schema, table)
@@ -132,7 +141,114 @@ def load_data(db, metadata, schema, table):
 
     logging.info("End loading data from external table - {}".format(table))
 
+
+def parse_datetime(filename):
+    # 'users-2016-09-14--07-48-13--seq0000--part0000-csv-09-14--07-48-f31c477b94cf356270439b096942d10d.csv.gz'
+    if re.search('part\d{4}', filename) is not None:
+        match = re.search('\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}', filename)
+        date = match.group(0).split('--')
+        date = ' '.join([date[0].replace('-','.'), date[1].replace('-',':')])
+        return date
+    else:
+        raise PaletteFileParseError("Error: The filename doesn't contain a partXXXX substring.")
+
+
+def apply_scd(db, columns_def, schema, table, filename):
+
+
+    file_date = parse_datetime(filename)
+    logging.info("Processing: {} file date: {}".format(table, file_date))
+    map = sr.getSQL(columns_def, schema, table, 'yes', ['id'], file_date)
+    query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name = schema, table_name = table)
+    db.execute_non_query_in_transaction(query)
+    insert_data_from_external_table(db, schema, columns_def, 'users', 's_users')
+
+    for q in [map["DWHtableUpdateSCD"], map["DWHtableInsertSCD"]]:
+        db.execute_non_query_in_transaction(q)
+        sleep(30)
+
+    # db.execute_non_query_in_transaction(map["DWHtableUpdateSCD"])
+    # db.execute_non_query_in_transaction(map["DWHtableInsertSCD"])
+
+    # java.sql.Connection
+    # conn = (java.sql.Connection)
+    # globalMap.get("conn_tPostgresqlConnection_1");
+    # globalMap.put("SCDSucceeded", false);
+    # if (context.scd.equalsIgnoreCase("yes")) {
+    # int numStageInserts = 0;
+    # PreparedStatement DWHtableUpdateSCDSQL=null;
+    # PreparedStatement DWHtableInsertSCDSQL=null;
+    # PreparedStatement loadStage = null;
+    # String currentQuery="";
+    # try {
+    # currentQuery = "truncate table " + context.Target_Schema + ".s_" + context.tableName;
+    # conn.createStatement().execute(currentQuery);
+    # // currentQuery = "INSERT INTO " + context.Target_Schema + ".s_" + context.tableName + " SELECT "+ +"* FROM " + context.Target_Schema + ".ext_" + context.tableName;
+    # currentQuery= "INSERT INTO " + context.Target_Schema + ".s_" + context.tableName + " ( " + ((String)globalMap.get("EXTtableColumns")) + " )\n"+
+    # " SELECT " + ((String)globalMap.get("EXTtableColumns")) +" FROM " + context.Target_Schema + ".ext_" + context.tableName;
+    #
+    # loadStage=conn.prepareStatement(currentQuery);
+    # numStageInserts = loadStage.executeUpdate();
+    # conn.commit();
+    #
+    # log.warn("Populated stage - Table=" + context.tableName + " Inserted=" + numStageInserts );
+    # talendMeter_METTER.addMessage("Stage Inserted", numStageInserts, "", "", "tFlowLogger_1");
+    # talendMeter_METTERProcess(globalMap);
+    #
+    # conn.setAutoCommit(false);
+    # currentQuery=(String)globalMap.get("DWHtableUpdateSCD");
+    # DWHtableUpdateSCDSQL=conn.prepareStatement(currentQuery);
+    # int numSCDUpdates = DWHtableUpdateSCDSQL.executeUpdate();
+    #
+    # currentQuery=(String)globalMap.get("DWHtableInsertSCD");
+    # DWHtableInsertSCDSQL=conn.prepareStatement(currentQuery);
+    # int numSCDInserts = DWHtableInsertSCDSQL.executeUpdate();
+    #
+    # conn.commit();
+    # log.warn("SCD Completed - Table=" + context.tableName +" Updated=" + numSCDUpdates + " Inserted=" + numSCDInserts );
+    # talendMeter_METTER.addMessage("SCD Updated", numSCDUpdates, "", "", "tFlowLogger_1");
+    # talendMeter_METTERProcess(globalMap);
+    # talendMeter_METTER.addMessage("SCD Inserted", numSCDInserts, "", "", "tFlowLogger_1");
+    # talendMeter_METTERProcess(globalMap);
+    # globalMap.put("SCDSucceeded", true);
+    # }
+    # catch(SQLException
+    # e )
+    # {
+    #     log.fatal(
+    #         "SCD FAILED - Table=" + context.tableName + " error was:" + e.getMessage()
+    #         + " Query was '" + currentQuery);
+    # talendLogs_LOGS.addMessage("tWarn", "SCD", 5,
+    #                            "Error when loading data" + e.getMessage(), 50);
+    # talendLogs_LOGSProcess(globalMap);
+    # if (conn != null)
+    # {
+    # try
+    #     {
+    #         log.info("Transaction is being rolled back");
+    #     conn.rollback();
+    #     }
+    #     catch(SQLException
+    #     excep)
+    #     {
+    #         log.fatal(excep.getMessage());
+    #     }
+    #     }
+    #     globalMap.put("SCDSucceeded", false);
+    #     }
+    #     finally
+    #     {
+    #     if (DWHtableUpdateSCDSQL != null)
+    #     DWHtableUpdateSCDSQL.close();
+    #     if (DWHtableInsertSCDSQL != null) DWHtableInsertSCDSQL.close();
+    #     if (loadStage != null) loadStage.close();
+    #     conn.setAutoCommit(true);
+    #     }
+    # }
+
+
 def main():
+
     try:
         config_filename = sys.argv[1]
         config = load_config(config_filename)
@@ -157,9 +273,11 @@ def main():
         #sr.create_table_if_not_exists(db, 'palette', 'threadinfoo', metadata)
 
         #todo: handle execption in order not to stop all the table loads beacause of one table's problem
-        load_data(db, metadata, 'palette', 'threadinfo')
+        # load_data(db, metadata, 'palette', 'threadinfo')
+        apply_scd(db, metadata, 'palette', 'users', 'users-2016-09-14--07-48-13--seq0000--part0000-csv-09-14--07-48-f31c477b94cf356270439b096942d10d.csv')
 
         logging.info('End Insight GP-Import.')
+
 
     except Exception as exception:
         logging.log(FATAL_ERROR, 'Unhandled exception occurred: {}'.format(exception))

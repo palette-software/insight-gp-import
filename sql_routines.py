@@ -159,6 +159,26 @@ def get_create_external_table_query(columns_def, schema, table):
     logging.debug("getExternalCreateTableQuery - \n" + query)
     return query
 
+def add_2_cols_to_coldef(coldef, schema, table):
+    cm1 = ColumnMetadata()
+    cm1.schema = schema
+    cm1.table = table
+    cm1.name = 'p_filepath'
+    cm1.type = 'VARCHAR (500)'
+
+    cm2 = ColumnMetadata()
+    cm2.schema = schema
+    cm2.table = table
+    cm2.name = 'p_cre_date'
+    cm2.type = 'TIMESTAMP WITHOUT TIME ZONE'
+
+    new_coldef = coldef[:]
+
+    new_coldef.append(cm1)
+    new_coldef.append(cm2)
+
+    return new_coldef
+
 def getSQL(columns_def, schema, table, scd, pk, scdDate):
 
     sqlStageFullCreate = "CREATE TABLE #TARGET_SCHEMA.#STAGE_FULL_PREFIX#TABLE_NAME \n ( \n #NATURAL_COLS_WITH_TYPES\n ) "
@@ -234,7 +254,7 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
                                 FROM \n
                                   ( \n
                               		select * from ( \n
-                              		  select * ,row_number() OVER (PARTITION BY pk+" ORDER BY p_valid_from DESC) as p_rn \n
+                              		  select * ,row_number() OVER (PARTITION BY {pk} ORDER BY p_valid_from DESC) as p_rn \n
                               		  from #TARGET_SCHEMA.h_#TABLE_NAME ) tmp_h_#TABLE_NAME \n
                               		  WHERE p_rn = 1 \n
 
@@ -244,7 +264,7 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
                               ) t \n
                               WHERE \n
                                 t.sql_type='INSERT' OR \n
-                                (t.sql_type='UPDATE' AND is_equal LIKE '%N%')"""
+                                (t.sql_type='UPDATE' AND is_equal LIKE '%N%')""".format(pk=', '.join(pk))
 
     colPK_JOIN_IN_ON_Template = "h_#TABLE.#PK_PART=s_#TABLE.#PK_PART"
     colPK_JOIN_IN_WHERE_Template = "h_#TABLE.#PK_PART=t.#PK_PART"
@@ -318,8 +338,12 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
     strIS_EQUAL = ""
     strACT_PREV_DEF = ""
 
-    for i in range(len(columns_def)):
-        column = columns_def[i]
+    # TODO quick&dirty part1 :)
+    columns_def_extended = add_2_cols_to_coldef(columns_def, schema, table)
+
+
+    for i in range(len(columns_def_extended)):
+        column = columns_def_extended[i]
         column_name = column.name
         if ("," + column_name.upper() + ",") not in ",P_ID,P_ACTIVE_FLAG,P_VALID_FROM,P_VALID_TO,":
             strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL = strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL + "  " + column_name.lower()
@@ -364,7 +388,7 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
                     strIS_EQUAL = strIS_EQUAL + colSCD_IsEqual_String
                     strACT_PREV_DEF = strACT_PREV_DEF + colSCD_ActPrevDef_String
 
-        if i != len(columns_def) - 1:
+        if i != len(columns_def_extended) - 1:
             strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL = strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL + ", \n"
             strNATURAL_COLS_WITHOUT_TYPES_WITH_H = strNATURAL_COLS_WITHOUT_TYPES_WITH_H + ", \n"
             strNATURAL_COLS_WITHOUT_TYPES_WITH_S = strNATURAL_COLS_WITHOUT_TYPES_WITH_S + ", \n"
@@ -378,6 +402,7 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
                 strIS_EQUAL=strIS_EQUAL + " || \n"
 
             strACT_PREV_DEF=strACT_PREV_DEF + ", \n"
+
 
     strACT_PREV_LIST_WITHOUT_TYPES = strACT_PREV_LIST_WITHOUT_TYPES[2:]
     strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES[2:]
