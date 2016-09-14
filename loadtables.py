@@ -92,12 +92,14 @@ def move_files_between_folders(f_from, f_to, filename_pattern):
     logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to));
 
 
+def manage_partitions(db, schema, table):
 
-def load_data(db, metadata, schema, table):
+    if table in ("threadinfo", "serverlogs", "plainlogs"):
+        query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = schema, table_name = table)
+        db.execute_in_transaction(query)
 
-    logging.info("Start loading data from external table - {}".format(table))
 
-    move_files_between_folders("uploads", "processing", table + ".*csv.gz")
+def insert_data_from_external_table(db, schema, table, metadata):
 
     query = "INSERT INTO {schema_name}.{table_name} ( \n" + \
             sr.get_columns_def(metadata, schema, table, False) + \
@@ -107,10 +109,28 @@ def load_data(db, metadata, schema, table):
             " FROM {schema_name}.ext_{table_name}"
 
     query = query.format(schema_name = schema, table_name = table)
-    db.execute_in_transaction(query, None)
+    result = db.execute_non_query_in_transaction(query)
+    logging.info("Populated Table = {}, Inserted = {}".format(table, result))
+
+
+def load_data(db, metadata, schema, table):
+
+    logging.info("Start loading data from external table - {}".format(table))
+
+    try:
+        # move_files_between_folders("processing", "retry", table + ".*csv.gz")
+
+        #move_files_between_folders("uploads", "processing", table + ".*csv.gz")
+        #manage_partitions(db, schema, table)
+        #insert_data_from_external_table(db, schema, table, metadata)
+        #move_files_between_folders("processing", "archive", table + ".*csv.gz")
+
+    except Exception as exception:
+        logging.error(("Loading data for {} faild. Files are moving to retry folder. {}").format(table))
+        logging.error(exception)
+        #move_files_between_folders("processing", "retry", table + ".*csv.gz")
 
     logging.info("End loading data from external table - {}".format(table))
-
 
 def main():
     try:
@@ -134,8 +154,9 @@ def main():
         # print(sr.get_table_columns_def_from_db(db, 'palette', 'serverlogs'))
         # print(sr.has_ext_table_structure_changed(db, 'palette', 'threadinfo', metadata))
         # print(sr.if_table_exists(db, 'palette', 'threadinfo'))
-        # sr.create_table_if_not_exists(db, 'palette', 'threadinfo', metadata)
+        #sr.create_table_if_not_exists(db, 'palette', 'threadinfoo', metadata)
 
+        #todo: handle execption in order not to stop all the table loads beacause of one table's problem
         load_data(db, metadata, 'palette', 'threadinfo')
 
         logging.info('End Insight GP-Import.')
