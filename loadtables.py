@@ -18,16 +18,25 @@ class PaletteFileParseError(Exception):
 class PaletteMultipartSCD(Exception):
     pass
 
-
-def get_latest_metadata_file():
-    metadata_files = []
+def list_files_from_upload_folder(filename_pattern, sort_order):
+    sorted_file_list = []
     for root, dirs, files in os.walk("./uploads"):
         for file in files:
-            if re.match("metadata-.*csv.gz", file) is not None:
-                metadata_files.append(file)
+            if re.match(filename_pattern + "-.*csv.gz", file) is not None:
+                sorted_file_list.append(file)
 
-    metadata_files.sort(reverse=True)
-    
+    sort_order = sort_order.lower()
+    if sort_order == "asc":
+        sorted_file_list.sort(reverse=False)
+    elif sort_order == "desc":
+        sorted_file_list.sort(reverse=True)
+
+    return sorted_file_list
+
+def get_latest_metadata_file():
+
+    metadata_files = list_files_from_upload_folder("metadata", "desc")
+
     #Get The full path for the latest metadata
     for root, dirs, files in os.walk("./uploads"):
         for file in files:
@@ -81,13 +90,15 @@ def read_metadata(filename):
 
     return columns
 
-def move_files_between_folders(f_from, f_to, filename_pattern, load_type):
-    # TODO: only copy 6000 files at a time if load_type = incremental load
+def move_files_between_folders(f_from, f_to, filename_pattern, full_match = False):
 
+    # TODO: only copy 6000 files at a time if load_type = incremental load
     file_move_cnt = 0
+    if not full_match:
+        filename_pattern += "-"
     for root, dirs, files in os.walk("./" + f_from):
         for file in files:
-            if re.match(filename_pattern + "-", file) is not None:
+            if re.match(filename_pattern, file) is not None:
                 src = os.path.join(root, file)
                 if f_from == "uploads":
                     trg = os.path.join(root, file).replace("./uploads" + os.path.sep + "public" + os.path.sep, "./" + f_to + os.path.sep)
@@ -98,7 +109,7 @@ def move_files_between_folders(f_from, f_to, filename_pattern, load_type):
                 shutil.move(src, trg)
                 file_move_cnt += 1
 
-    logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to));
+    logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to))
 
 
 def manage_partitions(db, schema, table):
@@ -163,7 +174,6 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
 
 def apply_scd(db, columns_def, schema, table, filename):
 
-
     file_date = parse_datetime(filename)
     logging.info("Processing: {} file date: {}".format(table, file_date))
     map = sr.getSQL(columns_def, schema, table, 'yes', ['id'], file_date)
@@ -185,7 +195,7 @@ def get_metadata_for_table(metadata, table):
     return metadata_for_table
 
 
-def load_incremental_tables(config, metadata):
+def handle_incremental_tables(config, metadata):
 
     for table in config["Tables"]["Incremental"]:
         metadata_for_table = get_metadata_for_table(metadata, table)
@@ -194,22 +204,25 @@ def load_incremental_tables(config, metadata):
             (sr.get_create_incremental_table_query(metadata_for_table, config["Schema"], table))
 
 
-def load_full_tables(config, metadata):
+
+def handle_full_tables(config, metadata):
 
     for item in config["Tables"]["Full"]:
         table = item["name"]
         metadata_for_table = get_metadata_for_table(metadata, table)
         if table == "users":
+            #in case some files were stuck here from prev. run
             move_files_between_folders("processing", "retry", table)
-            # loop over files in uploads...
-                move_files_between_folders("uploads", "processing", table)
-                # read from processing
-                scd_date = parse_datetime()
-                sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", " ".join(), )
+            #we have to deal with "full table" files one by one
+            file_list = list_files_from_upload_folder(table, "asc")
+            for file in file_list:
+                move_files_between_folders("uploads", "processing", file, True)
+                scd_date = parse_datetime(file)
+                full_tables = config["Tables"]["Full"]
+                sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", item["pk"], scd_date)
+
+                # if ext table doesn't exists or structure has changed
                 (sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
-
-                (sr.get_create_incremental_table_query(metadata_for_table, config["Schema"], table))
-
 
 
 
@@ -232,7 +245,7 @@ def main():
         metadata = read_metadata(latest_metadata_file)
 
         #load_incremental_tables(config, metadata)
-        load_full_tables(config, metadata)
+        handle_full_tables(config, metadata)
 
         # cre_dwh_table_query = sr.get_create_table_query(metadata, 'palette', 'threadinfo')
         #create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
