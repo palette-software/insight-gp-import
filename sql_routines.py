@@ -1,6 +1,5 @@
 import logging
 import datetime
-from database import Database
 
 class ColumnMetadata(object):
 

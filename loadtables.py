@@ -8,7 +8,6 @@ from database import Database
 import os
 import re
 import shutil
-from time import sleep
 
 FATAL_ERROR = 49
 
@@ -163,12 +162,9 @@ def apply_scd(db, columns_def, schema, table, filename):
     db.execute_non_query_in_transaction(query)
     insert_data_from_external_table(db, schema, columns_def, 'users', 's_users')
 
-    for q in [map["DWHtableUpdateSCD"], map["DWHtableInsertSCD"]]:
-        db.execute_non_query_in_transaction(q)
-        sleep(30)
-
-    # db.execute_non_query_in_transaction(map["DWHtableUpdateSCD"])
-    # db.execute_non_query_in_transaction(map["DWHtableInsertSCD"])
+    queries_in_transaction = [map["DWHtableUpdateSCD"], map["DWHtableInsertSCD"]]
+    upd_ins_rowcount = db.execute_non_query_in_transaction(queries_in_transaction)
+    logging.info("SCD Completed. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[1], upd_ins_rowcount[1]))
 
     # java.sql.Connection
     # conn = (java.sql.Connection)
