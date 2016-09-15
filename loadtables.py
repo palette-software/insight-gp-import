@@ -203,9 +203,17 @@ def handle_incremental_tables(config, metadata):
             (sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
             (sr.get_create_incremental_table_query(metadata_for_table, config["Schema"], table))
 
+def create_external_table_if_needed():
+    pass
+    #Todo
+    #Check if ext table exits
+    #Check if structure has modifed
+    #Check if gpfdist port has modifed
+    #Get create ext table SQL
+    #Execute
 
 
-def handle_full_tables(config, metadata):
+def handle_full_tables(config, metadata, db):
 
     for item in config["Tables"]["Full"]:
         table = item["name"]
@@ -218,11 +226,12 @@ def handle_full_tables(config, metadata):
             for file in file_list:
                 move_files_between_folders("uploads", "processing", file, True)
                 scd_date = parse_datetime(file)
-                full_tables = config["Tables"]["Full"]
                 sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", item["pk"], scd_date)
 
+                print(sr.gen_alter_cols_for_ext_table_structure_change(db, config["Schema"], "h_" + table, metadata_for_table))
+
                 # if ext table doesn't exists or structure has changed
-                (sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
+                #(sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
 
 
 
@@ -245,7 +254,9 @@ def main():
         metadata = read_metadata(latest_metadata_file)
 
         #load_incremental_tables(config, metadata)
-        handle_full_tables(config, metadata)
+
+
+        handle_full_tables(config, metadata, db)
 
         # cre_dwh_table_query = sr.get_create_table_query(metadata, 'palette', 'threadinfo')
         #create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
