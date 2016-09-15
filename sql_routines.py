@@ -30,17 +30,20 @@ def get_table_columns_def_from_db(db, schema, table):
     params = {'schema': schema, 'table': table}
     return db.execute_in_transaction(sql, params)
 
-def gen_alter_cols_for_ext_table_structure_change(db, schema, table, columns_def):
+def gen_alter_cols_for_ext_table_structure_change(db, schema, table, columns_def, incremental = True):
     #todo: type also should be changed
     sql_alter_stmts = []
-    cols_def_from_db = get_table_columns_def_from_db(db, schema, table)
+    cols_def_from_db = get_table_columns_def_from_db(db, schema, 'h_' + table if not incremental else table)
     only_col_names = [cd[2] for cd in cols_def_from_db]
 
     for col_def in columns_def:
         if col_def.name not in only_col_names:
-            sql_stmt = "ALTER TABLE {schema_name}.{table_type}_{table_name} ADD COLUMN " + col_def.name + " " + col_def.type + "  default null;\n"
-            sql_alter_stmts.append(sql_stmt.format(schema_name = schema, table_name = table, table_type = "s"))
-            sql_alter_stmts.append(sql_stmt.format(schema_name = schema, table_name = table, table_type = "h"))
+            sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def.name + " " + col_def.type + "  default null;\n"
+            if incremental:
+                sql_alter_stmts.append(sql_stmt.format(schema_name=schema, table_name=table, table_type=""))
+            else:
+                sql_alter_stmts.append(sql_stmt.format(schema_name = schema, table_name = table, table_type = "s_"))
+                sql_alter_stmts.append(sql_stmt.format(schema_name = schema, table_name = table, table_type = "h_"))
 
     return sql_alter_stmts
 

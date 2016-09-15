@@ -85,7 +85,10 @@ def read_metadata(filename):
     with gzip.open(filename, 'rt') as metadata_file:
         for line in metadata_file:
             parsed_line = line.strip('\n').split("\013")
-            columns.append(parsed_line_to_metadata_obj(parsed_line))
+            metadata_obj = parsed_line_to_metadata_obj(parsed_line)
+            if metadata_obj.type in TYPE_CONVERSION_MAP.keys():
+                metadata_obj.type = TYPE_CONVERSION_MAP[metadata_obj.type]
+            columns.append(metadata_obj)
     # TODO sort by attnum
 
     return columns
@@ -227,13 +230,14 @@ def handle_full_tables(config, metadata, db):
                 move_files_between_folders("uploads", "processing", file, True)
                 scd_date = parse_datetime(file)
                 sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", item["pk"], scd_date)
-
-                print(sr.gen_alter_cols_for_ext_table_structure_change(db, config["Schema"], "h_" + table, metadata_for_table))
+                print(sr.gen_alter_cols_for_ext_table_structure_change(db, config["Schema"], table, metadata_for_table, incremental=False))
 
                 # if ext table doesn't exists or structure has changed
                 #(sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
 
-
+TYPE_CONVERSION_MAP = {
+    'uuid': 'character varying (166)'
+}
 
 def main():
 
