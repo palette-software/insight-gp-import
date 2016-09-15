@@ -38,7 +38,6 @@ class Database(object):
         result = []
         for item in items:
             result.append(self.__execute_non_query(cursor, item, params))
-
         return result
 
     def __execute(self, cursor, query, params):

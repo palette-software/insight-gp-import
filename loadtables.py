@@ -15,6 +15,9 @@ FATAL_ERROR = 49
 class PaletteFileParseError(Exception):
     pass
 
+class PaletteMultipartSCD(Exception):
+    pass
+
 
 def get_latest_metadata_file():
     metadata_files = []
@@ -73,18 +76,18 @@ def read_metadata(filename):
     with gzip.open(filename, 'rt') as metadata_file:
         for line in metadata_file:
             parsed_line = line.strip('\n').split("\013")
-            if parsed_line[1] == 'users':
-                columns.append(parsed_line_to_metadata_obj(parsed_line))
+            columns.append(parsed_line_to_metadata_obj(parsed_line))
     # TODO sort by attnum
 
     return columns
 
-def move_files_between_folders(f_from, f_to, filename_pattern):
-    # TODO: only copy 6000 files at a time
+def move_files_between_folders(f_from, f_to, filename_pattern, load_type):
+    # TODO: only copy 6000 files at a time if load_type = incremental load
+
     file_move_cnt = 0
     for root, dirs, files in os.walk("./" + f_from):
         for file in files:
-            if re.match(filename_pattern, file) is not None:
+            if re.match(filename_pattern + "-", file) is not None:
                 src = os.path.join(root, file)
                 if f_from == "uploads":
                     trg = os.path.join(root, file).replace("./uploads" + os.path.sep + "public" + os.path.sep, "./" + f_to + os.path.sep)
@@ -151,6 +154,12 @@ def parse_datetime(filename):
     else:
         raise PaletteFileParseError("Error: The filename doesn't contain a partXXXX substring.")
 
+def chk_multipart_scd_filenames_in_uploads_folder(table):
+
+    for root, dirs, files in os.walk("./uploads"):
+        for file in files:
+            if re.match(table + ".+part0001.+csv\.gz", file) is not None:
+                raise PaletteMultipartSCD("MultiPart SCD table, STOPPING! File = {}".format(file))
 
 def apply_scd(db, columns_def, schema, table, filename):
 
@@ -164,83 +173,44 @@ def apply_scd(db, columns_def, schema, table, filename):
 
     queries_in_transaction = [map["DWHtableUpdateSCD"], map["DWHtableInsertSCD"]]
     upd_ins_rowcount = db.execute_non_query_in_transaction(queries_in_transaction)
-    logging.info("SCD Completed. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[1], upd_ins_rowcount[1]))
+    logging.info("SCD Completed. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[0], upd_ins_rowcount[1]))
 
-    # java.sql.Connection
-    # conn = (java.sql.Connection)
-    # globalMap.get("conn_tPostgresqlConnection_1");
-    # globalMap.put("SCDSucceeded", false);
-    # if (context.scd.equalsIgnoreCase("yes")) {
-    # int numStageInserts = 0;
-    # PreparedStatement DWHtableUpdateSCDSQL=null;
-    # PreparedStatement DWHtableInsertSCDSQL=null;
-    # PreparedStatement loadStage = null;
-    # String currentQuery="";
-    # try {
-    # currentQuery = "truncate table " + context.Target_Schema + ".s_" + context.tableName;
-    # conn.createStatement().execute(currentQuery);
-    # // currentQuery = "INSERT INTO " + context.Target_Schema + ".s_" + context.tableName + " SELECT "+ +"* FROM " + context.Target_Schema + ".ext_" + context.tableName;
-    # currentQuery= "INSERT INTO " + context.Target_Schema + ".s_" + context.tableName + " ( " + ((String)globalMap.get("EXTtableColumns")) + " )\n"+
-    # " SELECT " + ((String)globalMap.get("EXTtableColumns")) +" FROM " + context.Target_Schema + ".ext_" + context.tableName;
-    #
-    # loadStage=conn.prepareStatement(currentQuery);
-    # numStageInserts = loadStage.executeUpdate();
-    # conn.commit();
-    #
-    # log.warn("Populated stage - Table=" + context.tableName + " Inserted=" + numStageInserts );
-    # talendMeter_METTER.addMessage("Stage Inserted", numStageInserts, "", "", "tFlowLogger_1");
-    # talendMeter_METTERProcess(globalMap);
-    #
-    # conn.setAutoCommit(false);
-    # currentQuery=(String)globalMap.get("DWHtableUpdateSCD");
-    # DWHtableUpdateSCDSQL=conn.prepareStatement(currentQuery);
-    # int numSCDUpdates = DWHtableUpdateSCDSQL.executeUpdate();
-    #
-    # currentQuery=(String)globalMap.get("DWHtableInsertSCD");
-    # DWHtableInsertSCDSQL=conn.prepareStatement(currentQuery);
-    # int numSCDInserts = DWHtableInsertSCDSQL.executeUpdate();
-    #
-    # conn.commit();
-    # log.warn("SCD Completed - Table=" + context.tableName +" Updated=" + numSCDUpdates + " Inserted=" + numSCDInserts );
-    # talendMeter_METTER.addMessage("SCD Updated", numSCDUpdates, "", "", "tFlowLogger_1");
-    # talendMeter_METTERProcess(globalMap);
-    # talendMeter_METTER.addMessage("SCD Inserted", numSCDInserts, "", "", "tFlowLogger_1");
-    # talendMeter_METTERProcess(globalMap);
-    # globalMap.put("SCDSucceeded", true);
-    # }
-    # catch(SQLException
-    # e )
-    # {
-    #     log.fatal(
-    #         "SCD FAILED - Table=" + context.tableName + " error was:" + e.getMessage()
-    #         + " Query was '" + currentQuery);
-    # talendLogs_LOGS.addMessage("tWarn", "SCD", 5,
-    #                            "Error when loading data" + e.getMessage(), 50);
-    # talendLogs_LOGSProcess(globalMap);
-    # if (conn != null)
-    # {
-    # try
-    #     {
-    #         log.info("Transaction is being rolled back");
-    #     conn.rollback();
-    #     }
-    #     catch(SQLException
-    #     excep)
-    #     {
-    #         log.fatal(excep.getMessage());
-    #     }
-    #     }
-    #     globalMap.put("SCDSucceeded", false);
-    #     }
-    #     finally
-    #     {
-    #     if (DWHtableUpdateSCDSQL != null)
-    #     DWHtableUpdateSCDSQL.close();
-    #     if (DWHtableInsertSCDSQL != null) DWHtableInsertSCDSQL.close();
-    #     if (loadStage != null) loadStage.close();
-    #     conn.setAutoCommit(true);
-    #     }
-    # }
+    #if success, or not success...
+
+def get_metadata_for_table(metadata, table):
+    metadata_for_table = []
+    for m in metadata:
+        if m.table == table:
+            metadata_for_table.append(m)
+    return metadata_for_table
+
+
+def load_incremental_tables(config, metadata):
+
+    for table in config["Tables"]["Incremental"]:
+        metadata_for_table = get_metadata_for_table(metadata, table)
+        if table == "threadinfo":
+            (sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
+            (sr.get_create_incremental_table_query(metadata_for_table, config["Schema"], table))
+
+
+def load_full_tables(config, metadata):
+
+    for item in config["Tables"]["Full"]:
+        table = item["name"]
+        metadata_for_table = get_metadata_for_table(metadata, table)
+        if table == "users":
+            move_files_between_folders("processing", "retry", table)
+            # loop over files in uploads...
+                move_files_between_folders("uploads", "processing", table)
+                # read from processing
+                scd_date = parse_datetime()
+                sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", " ".join(), )
+                (sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
+
+                (sr.get_create_incremental_table_query(metadata_for_table, config["Schema"], table))
+
+
 
 
 def main():
@@ -261,16 +231,20 @@ def main():
 
         metadata = read_metadata(latest_metadata_file)
 
+        #load_incremental_tables(config, metadata)
+        load_full_tables(config, metadata)
+
         # cre_dwh_table_query = sr.get_create_table_query(metadata, 'palette', 'threadinfo')
-        # create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
+        #create_external_table_query = sr.get_create_external_table_query(metadata, 'palette', 'threadinfo')
         # print(sr.get_table_columns_def_from_db(db, 'palette', 'serverlogs'))
         # print(sr.has_ext_table_structure_changed(db, 'palette', 'threadinfo', metadata))
         # print(sr.if_table_exists(db, 'palette', 'threadinfo'))
-        #sr.create_table_if_not_exists(db, 'palette', 'threadinfoo', metadata)
 
         #todo: handle execption in order not to stop all the table loads beacause of one table's problem
         # load_data(db, metadata, 'palette', 'threadinfo')
-        apply_scd(db, metadata, 'palette', 'users', 'users-2016-09-14--07-48-13--seq0000--part0000-csv-09-14--07-48-f31c477b94cf356270439b096942d10d.csv')
+        #apply_scd(db, metadata, 'palette', 'users', 'users-2016-09-14--07-48-13--seq0000--part0000-csv-09-14--07-48-f31c477b94cf356270439b096942d10d.csv')
+        #chk_multipart_scd_filenames_in_uploads_folder("users")
+
 
         logging.info('End Insight GP-Import.')
 

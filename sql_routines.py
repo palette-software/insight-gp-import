@@ -62,15 +62,6 @@ def table_exists(db, schema, table):
 
     return True
 
-
-def create_table_if_not_exists(db, schema, table, columns_def):
-    if not table_exists(db, schema, table):
-        None
-        #Todo
-        #sql = getSQL(columns_def, schema, table, 'yes', ['id'], '2016-06-08 13:22:15')['DWHtableCreate']
-        #print(sql)
-
-
 def get_column_full_type_def(type, length, precision):
 
     query = ""
@@ -88,9 +79,14 @@ def get_column_full_type_def(type, length, precision):
 
     return column_def
 
-def get_columns_def(columns_def, schema, table, is_type_needed = True):
+def get_columns_def(columns_def, schema, table, type_needed = True, p_id_needed = True):
 
     cols_def = "   "
+    if p_id_needed:
+        if type_needed:
+            cols_def += "\"p_id\" bigserial\n , "
+        else:
+            cols_def += "\"p_id\"\n , "
 
     for column in columns_def:
         column_name = column.name
@@ -101,15 +97,13 @@ def get_columns_def(columns_def, schema, table, is_type_needed = True):
         #e.g. for column name plus full type def: "name character varying(500)"
         cols_def += "\"" + column_name.lower() + "\""
         cols_def += " "
-        if is_type_needed:
+        if type_needed:
             column_def = get_column_full_type_def(column_type, column_length, column_precision)
             cols_def += column_def
         cols_def += "\n"
         cols_def += " , "
 
-    #cols_def = cols_def.rstrip(', ')
-
-    if is_type_needed:
+    if type_needed:
         cols_def += "\"p_filepath\" varchar (500)\n"
         cols_def += " , \"p_cre_date\" timestamp without time zone \n"
     else:
@@ -118,7 +112,7 @@ def get_columns_def(columns_def, schema, table, is_type_needed = True):
 
     return cols_def
 
-def get_create_table_query(columns_def, schema, table):
+def get_create_incremental_table_query(columns_def, schema, table):
 
     query = ""
 
@@ -143,7 +137,7 @@ def get_create_external_table_query(columns_def, schema, table):
     query += "."
     query += "\"ext_" + table.lower() + "\""
     query += "\n(\n"
-    query += get_columns_def(columns_def, schema, table)
+    query += get_columns_def(columns_def, schema, table, True, False)
     query += ")"
     query += " LOCATION ('#EXTERNAL_TABLE') \n"
     query += " FORMAT 'TEXT' \n"
