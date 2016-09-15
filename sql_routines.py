@@ -30,7 +30,7 @@ def get_table_columns_def_from_db(db, schema, table):
     params = {'schema': schema, 'table': table}
     return db.execute_in_transaction(sql, params)
 
-def gen_alter_cols_for_ext_table_structure_change(db, schema, table, columns_def, incremental = True):
+def gen_alter_cols_because_of_metadata_change(db, schema, table, columns_def, incremental = True):
     #todo: type also should be changed
     sql_alter_stmts = []
     cols_def_from_db = get_table_columns_def_from_db(db, schema, 'h_' + table if not incremental else table)
@@ -172,6 +172,32 @@ def add_2_cols_to_coldef(coldef, schema, table):
     new_coldef.append(cm2)
 
     return new_coldef
+
+def ext_table_modified(db, schema, table, gpfdist_addr):
+    sql = """with base as (
+        SELECT n.nspname AS schemaname,
+                 c.relname AS tablename,
+                 ARRAY_TO_STRING(e.location,';')::text location,
+                 e.fmtopts,
+                 e.rejectlimit,
+                 e.rejectlimittype
+          FROM pg_class c
+            JOIN pg_exttable e ON (c.oid = e.reloid)
+            JOIN pg_namespace n ON (c.relnamespace = n.oid)
+          WHERE 1 = 1
+          AND n.nspname = %(schema)s
+          AND c.relname = %(table)s
+    )
+
+    SELECT count(1) as cnt
+    from base
+    WHERE
+        location not like %(gpfdist_addr)s"""
+
+    params = {'schema': schema, 'table': table.lower(), 'gpfdist_addr': '%' + gpfdist_addr + '%.gz'}
+    result = False if db.execute_in_transaction(sql, params)[0][0] == 0 else True
+    return result
+
 
 def getSQL(columns_def, schema, table, scd, pk, scdDate):
 

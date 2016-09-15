@@ -206,14 +206,20 @@ def handle_incremental_tables(config, metadata):
             (sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
             (sr.get_create_incremental_table_query(metadata_for_table, config["Schema"], table))
 
-def create_external_table_if_needed():
-    pass
+def create_external_table_if_needed(db, schema, table, metadata_for_table):
+    table_exists = sr.table_exists(db, schema, table)
+
+    # Check if structure has modifed
+    alter_list = sr.gen_alter_cols_because_of_metadata_change(db, schema, table, metadata_for_table, incremental=False)
+
     #Todo
-    #Check if ext table exits
-    #Check if structure has modifed
     #Check if gpfdist port has modifed
     #Get create ext table SQL
     #Execute
+
+
+def alter_table_if_needed():
+    pass
 
 
 def handle_full_tables(config, metadata, db):
@@ -229,8 +235,8 @@ def handle_full_tables(config, metadata, db):
             for file in file_list:
                 move_files_between_folders("uploads", "processing", file, True)
                 scd_date = parse_datetime(file)
-                sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", item["pk"], scd_date)
-                print(sr.gen_alter_cols_for_ext_table_structure_change(db, config["Schema"], table, metadata_for_table, incremental=False))
+                #sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", item["pk"], scd_date)
+                print(sr.ext_table_modified(db, config['Schema'], 'ext_' + table, config['gpfdist_addr']))
 
                 # if ext table doesn't exists or structure has changed
                 #(sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
@@ -240,7 +246,10 @@ TYPE_CONVERSION_MAP = {
 }
 
 def main():
-
+    # TODO:
+    # if there is a new Tableau(TM) version, and there are files from the
+    # previous version, currently we only process the newest metadata, thus
+    # we can't process the older csvs
     try:
         config_filename = sys.argv[1]
         config = load_config(config_filename)
