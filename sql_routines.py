@@ -33,7 +33,7 @@ def get_table_columns_def_from_db(db, schema, table):
 def gen_alter_cols_because_of_metadata_change(db, schema, table, columns_def, incremental = True):
     #todo: type also should be changed
     sql_alter_stmts = []
-    cols_def_from_db = get_table_columns_def_from_db(db, schema, 'h_' + table if not incremental else table)
+    cols_def_from_db = get_table_columns_def_from_db(db, schema, 'ext_' + table if not incremental else table)
     only_col_names = [cd[2] for cd in cols_def_from_db]
 
     for col_def in columns_def:
@@ -197,6 +197,9 @@ def ext_table_gpfdist_addr_modified(db, schema, table, gpfdist_addr):
     result = False if db.execute_in_transaction(sql, params)[0][0] == 0 else True
     return result
 
+def drop_table(db, schema, table, external=False):
+    external = "external" if external else ""
+    db.execute_non_query_in_transaction("drop {external} table if exists {schema_name}.{table_name}".format(schema_name = schema, table_name = table, external = external))
 
 def getSQL(columns_def, schema, table, scd, pk, scdDate):
 

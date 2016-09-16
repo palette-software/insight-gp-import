@@ -50,7 +50,7 @@ def load_config(filename):
         config = yaml.load(config_file)
     return config
 
-def setup_logging(filename, console_enabled):
+def setup_logging(filename, console_enabled, log_level):
     FORMAT = '%(asctime)-15s - %(levelname)-5s - %(module)-10s - %(message)s'
 
     log_handlers = []
@@ -63,7 +63,12 @@ def setup_logging(filename, console_enabled):
         console = logging.StreamHandler()
         log_handlers.append(console)
 
-    logging.basicConfig(level=logging.DEBUG, format=FORMAT, handlers=log_handlers)
+    if log_level == "DEBUG":
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+
+    logging.basicConfig(level=level, format=FORMAT, handlers=log_handlers)
 
     # We need a custom level to have 'FATAL' appear in log files (instead of CRITICAL)
     logging.addLevelName(FATAL_ERROR, 'FATAL')
@@ -209,26 +214,26 @@ def handle_incremental_tables(config, metadata):
 def create_external_table_if_needed(db, schema, table, metadata_for_table, gpfdist_addr):
 
     ext_table = "ext_" + table
+    ext_table_create_sql = sr.get_create_external_table_query(metadata_for_table, schema, table)
+    ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE","gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(gpfdist_addr=gpfdist_addr, table_name=table))
+
     table_exists = sr.table_exists(db, schema, ext_table)
+    if not table_exists:
+        db.execute_non_query_in_transaction(ext_table_create_sql)
+        logging.info("External table created: {table_name}".format(table_name = ext_table))
+
     # Check if structure has modifed
     alter_list = sr.gen_alter_cols_because_of_metadata_change(db, schema, table, metadata_for_table, incremental=False)
     gpfdist_addr_modified = sr.ext_table_gpfdist_addr_modified(db, schema, ext_table, gpfdist_addr)
 
-    print(table_exists)
-    print(str(alter_list))
-    print(gpfdist_addr_modified)
-
-    if not table_exists or alter_list != [] or gpfdist_addr_modified:
-        ext_table_create_sql = sr.get_create_external_table_query(metadata_for_table, schema, table)
-        ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE", "gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(gpfdist_addr = gpfdist_addr, table_name = table))
-
+    if alter_list != [] or gpfdist_addr_modified:
+        sr.drop_table(db, schema, ext_table, external=True)
         db.execute_non_query_in_transaction(ext_table_create_sql)
-
+        logging.info("External table recreated: {table_name}".format(table_name=ext_table))
     return alter_list
 
-def alter_table_if_needed():
-    pass
-
+def alter_dwh_table_if_needed(db, alter_list):
+    db.execute_non_query_in_transaction(alter_list)
 
 def handle_full_tables(config, metadata, db):
 
@@ -236,19 +241,23 @@ def handle_full_tables(config, metadata, db):
         table = item["name"]
         metadata_for_table = get_metadata_for_table(metadata, table)
         if table == "users":
-            create_external_table_if_needed(db, config["Schema"], table, metadata_for_table, config["gpfdist_addr"])
+            logging.info("Start processing table: {}".format(table))
+            #Todo: how to improve this? passing alter_list is ugly but we want to avoid double db call
+            alter_list = create_external_table_if_needed(db, config["Schema"], table, metadata_for_table, config["gpfdist_addr"])
+            alter_dwh_table_if_needed(db, alter_list)
 
             #in case some files were stuck here from prev. run
             move_files_between_folders("processing", "retry", table)
-            #we have to deal with "full table" files one by one
+
+            #we have to deal with "full table" files one by one in ascending order
             file_list = list_files_from_upload_folder(table, "asc")
             for file in file_list:
                 move_files_between_folders("uploads", "processing", file, True)
                 scd_date = parse_datetime(file)
-                #sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", item["pk"], scd_date)
+                sql_queries_map = sr.getSQL(metadata_for_table, config["Schema"], table, "yes", item["pk"], scd_date)
 
-                # if ext table doesn't exists or structure has changed
-                #(sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
+            logging.info("End processing table: {}".format(table))
+
 
 TYPE_CONVERSION_MAP = {
     'uuid': 'character varying (166)'
@@ -263,7 +272,7 @@ def main():
         config_filename = sys.argv[1]
         config = load_config(config_filename)
 
-        setup_logging(config['Logfilename'], config['ConsoleLog'])
+        setup_logging(config['Logfilename'], config['ConsoleLog'], config['LogLevel'])
 
 
         logging.info('Start Insight GP-Import.')

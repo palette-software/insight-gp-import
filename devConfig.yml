@@ -9,6 +9,7 @@ gpfdist_addr: localhost:18010
 #Logfilename: /var/log/insight-gp-import/loadtables.log
 Logfilename: loadtables.log
 ConsoleLog: True
+LogLevel: INFO
 Tables:
   Incremental:
     - countersamples
