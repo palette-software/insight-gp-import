@@ -149,7 +149,6 @@ def get_create_external_table_query(columns_def, schema, table):
     query += "\"ext_error_table\" \n"
     query += " SEGMENT REJECT LIMIT 1000 ROWS"
 
-
     logging.debug("getExternalCreateTableQuery - \n" + query)
     return query
 
@@ -173,7 +172,7 @@ def add_2_cols_to_coldef(coldef, schema, table):
 
     return new_coldef
 
-def ext_table_modified(db, schema, table, gpfdist_addr):
+def ext_table_gpfdist_addr_modified(db, schema, table, gpfdist_addr):
     sql = """with base as (
         SELECT n.nspname AS schemaname,
                  c.relname AS tablename,
