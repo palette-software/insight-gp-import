@@ -82,12 +82,17 @@ def get_column_full_type_def(type, length, precision):
 
 def get_columns_def(columns_def, schema, table, type_needed = True, p_id_needed = True):
 
-    cols_def = "   "
+    cols_def = ""
     if p_id_needed:
         if type_needed:
-            cols_def += "\"p_id\" bigserial\n , "
+            cols_def += ", \"p_id\" bigserial\n , "
         else:
-            cols_def += "\"p_id\"\n , "
+            cols_def += ", \"p_id\"\n , "
+
+    if type_needed:
+        cols_def += ", \"p_filepath\" varchar (500)\n"
+    else:
+        cols_def += ", \"p_filepath\"\n"
 
     for column in columns_def:
         column_name = column.name
@@ -96,19 +101,18 @@ def get_columns_def(columns_def, schema, table, type_needed = True, p_id_needed 
         column_precision = column.precision
 
         #e.g. for column name plus full type def: "name character varying(500)"
-        cols_def += "\"" + column_name.lower() + "\""
+        cols_def += " , \"" + column_name.lower() + "\""
         cols_def += " "
         if type_needed:
             column_def = get_column_full_type_def(column_type, column_length, column_precision)
             cols_def += column_def
         cols_def += "\n"
-        cols_def += " , "
+
+    cols_def = cols_def.lstrip(",")
 
     if type_needed:
-        cols_def += "\"p_filepath\" varchar (500)\n"
         cols_def += " , \"p_cre_date\" timestamp without time zone \n"
     else:
-        cols_def += "\"p_filepath\"\n"
         cols_def += " , \"p_cre_date\" \n"
 
     return cols_def
@@ -126,7 +130,7 @@ def get_create_incremental_table_query(columns_def, schema, table):
     query += ")"
     query += " WITH (appendonly=true, orientation=row, compresstype=quicklz)"
 
-    logging.debug("get_create_table_query - \n" + query)
+    logging.debug("get_create_incremental_table_query - \n" + query)
     return query
 
 def get_create_external_table_query(columns_def, schema, table):
