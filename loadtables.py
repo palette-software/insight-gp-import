@@ -170,14 +170,14 @@ def handle_full_tables(config, metadata):
             if table == "users":
                 logging.info("Start processing table: {}".format(table))
                 metadata_for_table = get_metadata_for_table(metadata, table)
-                sql_queries_map = sr.getSQL(metadata_for_table, schema, table, "yes", item["pk"], None)
+                sql_queries_map = sr.getSQL(metadata_for_table, table, "yes", item["pk"], None)
                 chk_multipart_scd_filenames_in_uploads_folder(table)
 
-                if sr.create_dwh_tables_if_needed(schema, table, sql_queries_map):
+                if sr.create_dwh_tables_if_needed(table, sql_queries_map):
                     break
 
                 # Todo: how to improve this? passing alter_list is ugly but we want to avoid double db call
-                alter_list = sr.create_external_table_if_needed(schema, table, metadata_for_table, config["gpfdist_addr"])
+                alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"])
                 sr.alter_dwh_table_if_needed(alter_list)
 
                 #in case some files were stuck here from prev. run
@@ -188,7 +188,7 @@ def handle_full_tables(config, metadata):
                 for file in file_list:
                     try:
                         move_files_between_folders("uploads", "processing", file, True)
-                        sr.load_data_from_external_table(metadata_for_table, schema, table)
+                        sr.load_data_from_external_table(metadata_for_table, table)
                         scd_date = parse_datetime(file)
                         sr.apply_scd(metadata_for_table, schema, table, scd_date, item["pk"])
                         move_files_between_folders("processing", "archive", table)
@@ -221,7 +221,7 @@ def main():
 
         logging.info('Start Insight GP-Import.')
         db = Database(config)
-        sr.init(db)
+        sr.init(db, config["Schema"])
 
         latest_metadata_file =  get_latest_metadata_file()
         logging.debug("Metadata file: " + latest_metadata_file)

@@ -2,6 +2,7 @@ import logging
 import datetime
 
 _db = None
+_schema = ""
 
 class ColumnMetadata(object):
 
@@ -14,12 +15,12 @@ class ColumnMetadata(object):
         self.length = 0
         self.precision = 0
 
-def init(db):
-    global _db
+def init(db, schema):
+    global _db, _schema
     _db = db
+    _schema = schema
 
-
-def get_table_columns_def_from_db(schema, table):
+def get_table_columns_def_from_db(table):
     sql = """SELECT n.nspname as schemaname, c.relname as tablename,
                     a.attname as columnname,
                     format_type(a.atttypid, a.atttypmod),
@@ -34,27 +35,27 @@ def get_table_columns_def_from_db(schema, table):
                     AND a.attnum > 0 /*filter out the internal columns*/
                     ORDER BY n.nspname,c.relname,a.attnum ASC"""
 
-    params = {'schema': schema, 'table': table}
+    params = {'schema': _schema, 'table': table}
     return _db.execute_in_transaction(sql, params)
 
-def gen_alter_cols_because_of_metadata_change(schema, table, columns_def, incremental = True):
+def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental = True):
     #todo: type also should be changed
     sql_alter_stmts = []
-    cols_def_from_db = get_table_columns_def_from_db(schema, 'ext_' + table if not incremental else table)
+    cols_def_from_db = get_table_columns_def_from_db('ext_' + table if not incremental else table)
     only_col_names = [cd[2] for cd in cols_def_from_db]
 
     for col_def in columns_def:
         if col_def.name not in only_col_names:
             sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def.name + " " + col_def.type + "  default null;\n"
             if incremental:
-                sql_alter_stmts.append(sql_stmt.format(schema_name=schema, table_name=table, table_type=""))
+                sql_alter_stmts.append(sql_stmt.format(schema_name=_schema, table_name=table, table_type=""))
             else:
-                sql_alter_stmts.append(sql_stmt.format(schema_name = schema, table_name = table, table_type = "s_"))
-                sql_alter_stmts.append(sql_stmt.format(schema_name = schema, table_name = table, table_type = "h_"))
+                sql_alter_stmts.append(sql_stmt.format(schema_name = _schema, table_name = table, table_type = "s_"))
+                sql_alter_stmts.append(sql_stmt.format(schema_name = _schema, table_name = table, table_type = "h_"))
 
     return sql_alter_stmts
 
-def table_exists(schema, table):
+def table_exists(table):
     sql = """SELECT COALESCE((  select table_name
                                 from
                                     information_schema.tables
@@ -63,7 +64,7 @@ def table_exists(schema, table):
                                     lower(table_name) = lower(%(table)s)
             ), 'MISSING_TABLE')"""
 
-    params = {'schema': schema, 'table': table}
+    params = {'schema': _schema, 'table': table}
     result = _db.execute_in_transaction(sql, params)
     if result[0][0] == "MISSING_TABLE":
         return False
@@ -87,7 +88,7 @@ def get_column_full_type_def(type, length, precision):
 
     return column_def
 
-def get_columns_def(columns_def, schema, table, type_needed = True, p_id_needed = True):
+def get_columns_def(columns_def, table, type_needed = True, p_id_needed = True):
 
     cols_def = ""
     if p_id_needed:
@@ -124,38 +125,38 @@ def get_columns_def(columns_def, schema, table, type_needed = True, p_id_needed 
 
     return cols_def
 
-def get_create_incremental_table_query(columns_def, schema, table):
+def get_create_incremental_table_query(columns_def, table):
 
     query = ""
 
     query += " CREATE TABLE "
-    query += "\"" + schema.lower() + "\""
+    query += "\"" + _schema.lower() + "\""
     query += "."
     query += "\"" + table.lower() + "\""
     query += "\n(\n"
-    query += get_columns_def(columns_def, schema, table)
+    query += get_columns_def(columns_def, _schema, table)
     query += ")"
     query += " WITH (appendonly=true, orientation=row, compresstype=quicklz)"
 
     logging.debug("get_create_incremental_table_query - \n" + query)
     return query
 
-def get_create_external_table_query(columns_def, schema, table):
+def get_create_external_table_query(columns_def, table):
 
     query = ""
 
     query += " CREATE READABLE EXTERNAL TABLE "
-    query += "\"" + schema.lower() + "\""
+    query += "\"" + _schema.lower() + "\""
     query += "."
     query += "\"ext_" + table.lower() + "\""
     query += "\n(\n"
-    query += get_columns_def(columns_def, schema, table, True, False)
+    query += get_columns_def(columns_def, table, True, False)
     query += ")"
     query += " LOCATION ('#EXTERNAL_TABLE') \n"
     query += " FORMAT 'TEXT' \n"
     query += " ( HEADER DELIMITER '\\013' NULL AS '\\\\N' ESCAPE AS '\\\\' \n)"
     query += "	LOG ERRORS INTO "
-    query += "\"" + schema.lower() + "\""
+    query += "\"" + _schema.lower() + "\""
     query += "."
     query += "\"ext_error_table\" \n"
     query += " SEGMENT REJECT LIMIT 1000 ROWS"
@@ -163,15 +164,15 @@ def get_create_external_table_query(columns_def, schema, table):
     logging.debug("getExternalCreateTableQuery - \n" + query)
     return query
 
-def add_2_cols_to_coldef(coldef, schema, table):
+def add_2_cols_to_coldef(coldef, table):
     cm1 = ColumnMetadata()
-    cm1.schema = schema
+    cm1.schema = _schema
     cm1.table = table
     cm1.name = 'p_filepath'
     cm1.type = 'VARCHAR (500)'
 
     cm2 = ColumnMetadata()
-    cm2.schema = schema
+    cm2.schema = _schema
     cm2.table = table
     cm2.name = 'p_cre_date'
     cm2.type = 'TIMESTAMP WITHOUT TIME ZONE'
@@ -183,7 +184,7 @@ def add_2_cols_to_coldef(coldef, schema, table):
 
     return new_coldef
 
-def ext_table_gpfdist_addr_modified(schema, table, gpfdist_addr):
+def ext_table_gpfdist_addr_modified(table, gpfdist_addr):
     sql = """with base as (
         SELECT n.nspname AS schemaname,
                  c.relname AS tablename,
@@ -204,15 +205,15 @@ def ext_table_gpfdist_addr_modified(schema, table, gpfdist_addr):
     WHERE
         location not like %(gpfdist_addr)s"""
 
-    params = {'schema': schema, 'table': table.lower(), 'gpfdist_addr': '%' + gpfdist_addr + '%.gz'}
+    params = {'schema': _schema, 'table': table.lower(), 'gpfdist_addr': '%' + gpfdist_addr + '%.gz'}
     result = False if _db.execute_in_transaction(sql, params)[0][0] == 0 else True
     return result
 
-def drop_table(schema, table, external=False):
+def drop_table(table, external=False):
     external = "external" if external else ""
-    _db.execute_non_query_in_transaction("drop {external} table if exists {schema_name}.{table_name}".format(schema_name = schema, table_name = table, external = external))
+    _db.execute_non_query_in_transaction("drop {external} table if exists {schema_name}.{table_name}".format(schema_name = _schema, table_name = table, external = external))
 
-def getSQL(columns_def, schema, table, scd, pk, scdDate):
+def getSQL(columns_def, table, scd, pk, scdDate):
 
     sqlStageFullCreate = "CREATE TABLE #TARGET_SCHEMA.#STAGE_FULL_PREFIX#TABLE_NAME \n ( \n #NATURAL_COLS_WITH_TYPES\n ) "
 
@@ -372,7 +373,7 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
     strACT_PREV_DEF = ""
 
     # TODO quick&dirty part1 :)
-    columns_def_extended = add_2_cols_to_coldef(columns_def, schema, table)
+    columns_def_extended = add_2_cols_to_coldef(columns_def, table)
 
 
     for i in range(len(columns_def_extended)):
@@ -464,20 +465,20 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
     strSYSDATE = "'" + scdDate + "'::TIMESTAMP"
     strYES_FLAG = "'Y'::VARCHAR(1)"
 
-    sqlStageFullCreate = sqlStageFullCreate.replace("#TARGET_SCHEMA", schema)
+    sqlStageFullCreate = sqlStageFullCreate.replace("#TARGET_SCHEMA", _schema)
     sqlStageFullCreate = sqlStageFullCreate.replace("#TABLE_NAME", table)
     sqlStageFullCreate = sqlStageFullCreate.replace("#STAGE_FULL_PREFIX", strSTAGE_FULL_PREFIX)
     sqlStageFullCreate = sqlStageFullCreate.replace("#NATURAL_COLS_WITH_TYPES", strNATURAL_COLS_WITH_TYPES)
 
-    sqlDWHtableCreate = sqlDWHtableCreate.replace("#TARGET_SCHEMA", schema)
+    sqlDWHtableCreate = sqlDWHtableCreate.replace("#TARGET_SCHEMA", _schema)
     sqlDWHtableCreate = sqlDWHtableCreate.replace("#TABLE_NAME", table)
     sqlDWHtableCreate=sqlDWHtableCreate.replace("#NATURAL_COLS_WITH_TYPES",strNATURAL_COLS_WITH_TYPES)
 
-    sqlDWHviewCreate = sqlDWHviewCreate.replace("#TARGET_SCHEMA", schema)
+    sqlDWHviewCreate = sqlDWHviewCreate.replace("#TARGET_SCHEMA", _schema)
     sqlDWHviewCreate = sqlDWHviewCreate.replace("#TABLE_NAME", table)
     sqlDWHviewCreate = sqlDWHviewCreate.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL", strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
 
-    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#TARGET_SCHEMA", schema)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#TARGET_SCHEMA", _schema)
     sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#TABLE_NAME", table)
     sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#SQL_TYPE", strSQL_TYPE)
     sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#IS_EQUAL", strIS_EQUAL)
@@ -490,8 +491,8 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
     sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#DATE_INFINITE",strDATE_INFINITE)
     sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#SYSDATE",strSYSDATE)
 
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#TARGET_SCHEMA",schema)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#TABLE_NAME",table)
+    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#TARGET_SCHEMA", _schema)
+    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#TABLE_NAME", table)
 
     sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL", strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
     sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_H", strNATURAL_COLS_WITHOUT_TYPES_WITH_H)
@@ -526,61 +527,61 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
     logging.debug("DWHtableInsertSCD - " + sqlDWHtableInsertSCD)
     return map
 
-def manage_partitions(schema, table):
+def manage_partitions(table):
 
     if table in ("threadinfo", "serverlogs", "plainlogs"):
-        query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = schema, table_name = table)
+        query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = _schema, table_name = table)
         _db.execute_in_transaction(query)
 
-def insert_data_from_external_table(schema, metadata, src_table, trg_table):
+def insert_data_from_external_table(metadata, src_table, trg_table):
 
     logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
 
     query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
-            get_columns_def(metadata, schema, src_table, type_needed = False, p_id_needed = False) + \
+            get_columns_def(metadata, src_table, type_needed = False, p_id_needed = False) + \
             " ) \n" \
             "SELECT \n" + \
-                get_columns_def(metadata, schema, src_table, type_needed = False, p_id_needed = False) + \
+                get_columns_def(metadata, src_table, type_needed = False, p_id_needed = False) + \
             " FROM {schema_name}.{src_table_name}"
 
-    query = query.format(schema_name = schema, src_table_name = src_table, trg_table_name = trg_table)
+    query = query.format(schema_name = _schema, src_table_name = src_table, trg_table_name = trg_table)
     result = _db.execute_non_query_in_transaction(query)
 
     logging.info("End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
 
-def apply_scd(metadata_for_table, schema, table, scd_date, pk):
+def apply_scd(metadata_for_table, table, scd_date, pk):
 
     logging.info("Start applying SCD. Table = {}, SCD Date: {}".format(table, scd_date))
-    sql_queries_map = getSQL(metadata_for_table, schema, table, "yes", pk, scd_date)
+    sql_queries_map = getSQL(metadata_for_table, table, "yes", pk, scd_date)
 
     queries_in_transaction = [sql_queries_map["DWHtableUpdateSCD"], sql_queries_map["DWHtableInsertSCD"]]
     upd_ins_rowcount = _db.execute_non_query_in_transaction(queries_in_transaction)
     logging.info("End applying SCD. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[0], upd_ins_rowcount[1]))
 
-def load_data_from_external_table(metadata_for_table, schema, table):
-    query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name=schema, table_name=table)
+def load_data_from_external_table(metadata_for_table, table):
+    query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name = _schema, table_name = table)
     _db.execute_non_query_in_transaction(query)
     src_table = "ext_" + table
     trg_table = "s_" + table
-    insert_data_from_external_table(schema, metadata_for_table, src_table, trg_table)
+    insert_data_from_external_table(metadata_for_table, src_table, trg_table)
 
-def create_external_table_if_needed(schema, table, metadata_for_table, gpfdist_addr):
+def create_external_table_if_needed(table, metadata_for_table, gpfdist_addr):
 
     ext_table = "ext_" + table
-    ext_table_create_sql = get_create_external_table_query(metadata_for_table, schema, table)
+    ext_table_create_sql = get_create_external_table_query(metadata_for_table, table)
     ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE","gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(gpfdist_addr=gpfdist_addr, table_name=table))
 
-    ext_table_exists = table_exists(schema, ext_table)
+    ext_table_exists = table_exists(ext_table)
     if not ext_table_exists:
         _db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.info("External table created: {table_name}".format(table_name = ext_table))
 
     # Check if structure has modifed
-    alter_list = gen_alter_cols_because_of_metadata_change(schema, table, metadata_for_table, incremental=False)
-    gpfdist_addr_modified = ext_table_gpfdist_addr_modified(schema, ext_table, gpfdist_addr)
+    alter_list = gen_alter_cols_because_of_metadata_change(table, metadata_for_table, incremental=False)
+    gpfdist_addr_modified = ext_table_gpfdist_addr_modified(ext_table, gpfdist_addr)
 
     if alter_list != [] or gpfdist_addr_modified:
-        drop_table(schema, ext_table, external=True)
+        drop_table(ext_table, external=True)
         _db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.info("External table recreated: {table_name}".format(table_name=ext_table))
     return alter_list
@@ -588,8 +589,8 @@ def create_external_table_if_needed(schema, table, metadata_for_table, gpfdist_a
 def alter_dwh_table_if_needed(alter_list):
     _db.execute_non_query_in_transaction(alter_list)
 
-def create_dwh_tables_if_needed(schema, table, sql_queries_map):
-    if not table_exists(schema, "h_" + table):
+def create_dwh_tables_if_needed(table, sql_queries_map):
+    if not table_exists("h_" + table):
         _db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
         _db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
         return True
