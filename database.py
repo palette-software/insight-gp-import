@@ -1,6 +1,5 @@
 import logging
 import psycopg2
-from time import sleep
 
 class Database(object):
     def __init__(self, kwargs):

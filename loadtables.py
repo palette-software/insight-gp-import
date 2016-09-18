@@ -195,17 +195,17 @@ def create_external_table_if_needed(db, schema, table, metadata_for_table, gpfdi
     ext_table_create_sql = sr.get_create_external_table_query(metadata_for_table, schema, table)
     ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE","gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(gpfdist_addr=gpfdist_addr, table_name=table))
 
-    table_exists = sr.table_exists(db, schema, ext_table)
+    table_exists = sr.table_exists(schema, ext_table)
     if not table_exists:
         db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.info("External table created: {table_name}".format(table_name = ext_table))
 
     # Check if structure has modifed
-    alter_list = sr.gen_alter_cols_because_of_metadata_change(db, schema, table, metadata_for_table, incremental=False)
-    gpfdist_addr_modified = sr.ext_table_gpfdist_addr_modified(db, schema, ext_table, gpfdist_addr)
+    alter_list = sr.gen_alter_cols_because_of_metadata_change(schema, table, metadata_for_table, incremental=False)
+    gpfdist_addr_modified = sr.ext_table_gpfdist_addr_modified(schema, ext_table, gpfdist_addr)
 
     if alter_list != [] or gpfdist_addr_modified:
-        sr.drop_table(db, schema, ext_table, external=True)
+        sr.drop_table(schema, ext_table, external=True)
         db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.info("External table recreated: {table_name}".format(table_name=ext_table))
     return alter_list
@@ -214,7 +214,7 @@ def alter_dwh_table_if_needed(db, alter_list):
     db.execute_non_query_in_transaction(alter_list)
 
 def create_dwh_tables_if_needed(db, schema, table, sql_queries_map):
-    if not sr.table_exists(db, schema, "h_" + table):
+    if not sr.table_exists(schema, "h_" + table):
         db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
         db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
         return True
@@ -230,11 +230,11 @@ def handle_full_tables(config, metadata, db):
 
         try:
             table = item["name"]
-            metadata_for_table = get_metadata_for_table(metadata, table)
-            sql_queries_map = sr.getSQL(metadata_for_table, schema, table, "yes", item["pk"], None)
 
             if table == "users":
                 logging.info("Start processing table: {}".format(table))
+                metadata_for_table = get_metadata_for_table(metadata, table)
+                sql_queries_map = sr.getSQL(metadata_for_table, schema, table, "yes", item["pk"], None)
                 chk_multipart_scd_filenames_in_uploads_folder(table)
 
                 if create_dwh_tables_if_needed(db, schema, table, sql_queries_map):
@@ -259,7 +259,6 @@ def handle_full_tables(config, metadata, db):
                     except Exception as e:
                         logging.error("SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(file, e))
                         move_files_between_folders("processing", "retry", file, True)
-
                 logging.info("End processing table: {}".format(table))
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
@@ -293,6 +292,8 @@ def main():
 
         logging.info('Start Insight GP-Import.')
         db = Database(config)
+        sr.init(db)
+
         latest_metadata_file =  get_latest_metadata_file()
         logging.debug("Metadata file: " + latest_metadata_file)
         metadata = read_metadata(latest_metadata_file)

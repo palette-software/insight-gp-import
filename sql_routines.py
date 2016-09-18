@@ -1,6 +1,8 @@
 import logging
 import datetime
 
+_db = None
+
 class ColumnMetadata(object):
 
     def __init__(self):
@@ -12,7 +14,12 @@ class ColumnMetadata(object):
         self.length = 0
         self.precision = 0
 
-def get_table_columns_def_from_db(db, schema, table):
+def init(db):
+    global _db
+    _db = db
+
+
+def get_table_columns_def_from_db(schema, table):
     sql = """SELECT n.nspname as schemaname, c.relname as tablename,
                     a.attname as columnname,
                     format_type(a.atttypid, a.atttypmod),
@@ -28,12 +35,12 @@ def get_table_columns_def_from_db(db, schema, table):
                     ORDER BY n.nspname,c.relname,a.attnum ASC"""
 
     params = {'schema': schema, 'table': table}
-    return db.execute_in_transaction(sql, params)
+    return _db.execute_in_transaction(sql, params)
 
-def gen_alter_cols_because_of_metadata_change(db, schema, table, columns_def, incremental = True):
+def gen_alter_cols_because_of_metadata_change(schema, table, columns_def, incremental = True):
     #todo: type also should be changed
     sql_alter_stmts = []
-    cols_def_from_db = get_table_columns_def_from_db(db, schema, 'ext_' + table if not incremental else table)
+    cols_def_from_db = get_table_columns_def_from_db(schema, 'ext_' + table if not incremental else table)
     only_col_names = [cd[2] for cd in cols_def_from_db]
 
     for col_def in columns_def:
@@ -47,7 +54,7 @@ def gen_alter_cols_because_of_metadata_change(db, schema, table, columns_def, in
 
     return sql_alter_stmts
 
-def table_exists(db, schema, table):
+def table_exists(schema, table):
     sql = """SELECT COALESCE((  select table_name
                                 from
                                     information_schema.tables
@@ -57,7 +64,7 @@ def table_exists(db, schema, table):
             ), 'MISSING_TABLE')"""
 
     params = {'schema': schema, 'table': table}
-    result = db.execute_in_transaction(sql, params)
+    result = _db.execute_in_transaction(sql, params)
     if result[0][0] == "MISSING_TABLE":
         return False
 
@@ -176,7 +183,7 @@ def add_2_cols_to_coldef(coldef, schema, table):
 
     return new_coldef
 
-def ext_table_gpfdist_addr_modified(db, schema, table, gpfdist_addr):
+def ext_table_gpfdist_addr_modified(schema, table, gpfdist_addr):
     sql = """with base as (
         SELECT n.nspname AS schemaname,
                  c.relname AS tablename,
@@ -198,12 +205,12 @@ def ext_table_gpfdist_addr_modified(db, schema, table, gpfdist_addr):
         location not like %(gpfdist_addr)s"""
 
     params = {'schema': schema, 'table': table.lower(), 'gpfdist_addr': '%' + gpfdist_addr + '%.gz'}
-    result = False if db.execute_in_transaction(sql, params)[0][0] == 0 else True
+    result = False if _db.execute_in_transaction(sql, params)[0][0] == 0 else True
     return result
 
-def drop_table(db, schema, table, external=False):
+def drop_table(schema, table, external=False):
     external = "external" if external else ""
-    db.execute_non_query_in_transaction("drop {external} table if exists {schema_name}.{table_name}".format(schema_name = schema, table_name = table, external = external))
+    _db.execute_non_query_in_transaction("drop {external} table if exists {schema_name}.{table_name}".format(schema_name = schema, table_name = table, external = external))
 
 def getSQL(columns_def, schema, table, scd, pk, scdDate):
 
