@@ -525,3 +525,72 @@ def getSQL(columns_def, schema, table, scd, pk, scdDate):
     logging.debug("DWHtableUpdateSCD - " + sqlDWHtableUpdateSCD)
     logging.debug("DWHtableInsertSCD - " + sqlDWHtableInsertSCD)
     return map
+
+def manage_partitions(schema, table):
+
+    if table in ("threadinfo", "serverlogs", "plainlogs"):
+        query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = schema, table_name = table)
+        _db.execute_in_transaction(query)
+
+def insert_data_from_external_table(schema, metadata, src_table, trg_table):
+
+    logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
+
+    query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
+            get_columns_def(metadata, schema, src_table, type_needed = False, p_id_needed = False) + \
+            " ) \n" \
+            "SELECT \n" + \
+                get_columns_def(metadata, schema, src_table, type_needed = False, p_id_needed = False) + \
+            " FROM {schema_name}.{src_table_name}"
+
+    query = query.format(schema_name = schema, src_table_name = src_table, trg_table_name = trg_table)
+    result = _db.execute_non_query_in_transaction(query)
+
+    logging.info("End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
+
+def apply_scd(metadata_for_table, schema, table, scd_date, pk):
+
+    logging.info("Start applying SCD. Table = {}, SCD Date: {}".format(table, scd_date))
+    sql_queries_map = getSQL(metadata_for_table, schema, table, "yes", pk, scd_date)
+
+    queries_in_transaction = [sql_queries_map["DWHtableUpdateSCD"], sql_queries_map["DWHtableInsertSCD"]]
+    upd_ins_rowcount = _db.execute_non_query_in_transaction(queries_in_transaction)
+    logging.info("End applying SCD. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[0], upd_ins_rowcount[1]))
+
+def load_data_from_external_table(metadata_for_table, schema, table):
+    query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name=schema, table_name=table)
+    _db.execute_non_query_in_transaction(query)
+    src_table = "ext_" + table
+    trg_table = "s_" + table
+    insert_data_from_external_table(schema, metadata_for_table, src_table, trg_table)
+
+def create_external_table_if_needed(schema, table, metadata_for_table, gpfdist_addr):
+
+    ext_table = "ext_" + table
+    ext_table_create_sql = get_create_external_table_query(metadata_for_table, schema, table)
+    ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE","gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(gpfdist_addr=gpfdist_addr, table_name=table))
+
+    ext_table_exists = table_exists(schema, ext_table)
+    if not ext_table_exists:
+        _db.execute_non_query_in_transaction(ext_table_create_sql)
+        logging.info("External table created: {table_name}".format(table_name = ext_table))
+
+    # Check if structure has modifed
+    alter_list = gen_alter_cols_because_of_metadata_change(schema, table, metadata_for_table, incremental=False)
+    gpfdist_addr_modified = ext_table_gpfdist_addr_modified(schema, ext_table, gpfdist_addr)
+
+    if alter_list != [] or gpfdist_addr_modified:
+        drop_table(schema, ext_table, external=True)
+        _db.execute_non_query_in_transaction(ext_table_create_sql)
+        logging.info("External table recreated: {table_name}".format(table_name=ext_table))
+    return alter_list
+
+def alter_dwh_table_if_needed(alter_list):
+    _db.execute_non_query_in_transaction(alter_list)
+
+def create_dwh_tables_if_needed(schema, table, sql_queries_map):
+    if not table_exists(schema, "h_" + table):
+        _db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
+        _db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
+        return True
+    return False

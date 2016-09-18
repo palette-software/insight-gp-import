@@ -119,30 +119,6 @@ def move_files_between_folders(f_from, f_to, filename_pattern, full_match = Fals
 
     logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to))
 
-
-def manage_partitions(db, schema, table):
-
-    if table in ("threadinfo", "serverlogs", "plainlogs"):
-        query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = schema, table_name = table)
-        db.execute_in_transaction(query)
-
-
-def insert_data_from_external_table(db, schema, metadata, src_table, trg_table):
-
-    logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
-
-    query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
-            sr.get_columns_def(metadata, schema, src_table, type_needed = False, p_id_needed = False) + \
-            " ) \n" \
-            "SELECT \n" + \
-                sr.get_columns_def(metadata, schema, src_table, type_needed = False, p_id_needed = False) + \
-            " FROM {schema_name}.{src_table_name}"
-
-    query = query.format(schema_name = schema, src_table_name = src_table, trg_table_name = trg_table)
-    result = db.execute_non_query_in_transaction(query)
-
-    logging.info("End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
-
 def parse_datetime(filename):
     # 'users-2016-09-14--07-48-13--seq0000--part0000-csv-09-14--07-48-f31c477b94cf356270439b096942d10d.csv.gz'
     if re.search('part\d{4}', filename) is not None:
@@ -159,15 +135,6 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
         for file in files:
             if re.match(table + ".+part0001.+csv\.gz", file) is not None:
                 raise PaletteMultipartSCD("MultiPart SCD table, STOPPING! File = {}".format(file))
-
-def apply_scd(db, metadata_for_table, schema, table, scd_date, pk):
-
-    logging.info("Start applying SCD. Table = {}, SCD Date: {}".format(table, scd_date))
-    sql_queries_map = sr.getSQL(metadata_for_table, schema, table, "yes", pk, scd_date)
-
-    queries_in_transaction = [sql_queries_map["DWHtableUpdateSCD"], sql_queries_map["DWHtableInsertSCD"]]
-    upd_ins_rowcount = db.execute_non_query_in_transaction(queries_in_transaction)
-    logging.info("End applying SCD. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[0], upd_ins_rowcount[1]))
 
 def get_metadata_for_table(metadata, table):
     metadata_for_table = []
@@ -189,38 +156,7 @@ def handle_incremental_tables(config, metadata):
 
     logging.info("End loading incremental tables.")
 
-def create_external_table_if_needed(db, schema, table, metadata_for_table, gpfdist_addr):
-
-    ext_table = "ext_" + table
-    ext_table_create_sql = sr.get_create_external_table_query(metadata_for_table, schema, table)
-    ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE","gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(gpfdist_addr=gpfdist_addr, table_name=table))
-
-    table_exists = sr.table_exists(schema, ext_table)
-    if not table_exists:
-        db.execute_non_query_in_transaction(ext_table_create_sql)
-        logging.info("External table created: {table_name}".format(table_name = ext_table))
-
-    # Check if structure has modifed
-    alter_list = sr.gen_alter_cols_because_of_metadata_change(schema, table, metadata_for_table, incremental=False)
-    gpfdist_addr_modified = sr.ext_table_gpfdist_addr_modified(schema, ext_table, gpfdist_addr)
-
-    if alter_list != [] or gpfdist_addr_modified:
-        sr.drop_table(schema, ext_table, external=True)
-        db.execute_non_query_in_transaction(ext_table_create_sql)
-        logging.info("External table recreated: {table_name}".format(table_name=ext_table))
-    return alter_list
-
-def alter_dwh_table_if_needed(db, alter_list):
-    db.execute_non_query_in_transaction(alter_list)
-
-def create_dwh_tables_if_needed(db, schema, table, sql_queries_map):
-    if not sr.table_exists(schema, "h_" + table):
-        db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
-        db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
-        return True
-    return False
-
-def handle_full_tables(config, metadata, db):
+def handle_full_tables(config, metadata):
 
     logging.info("Start loading full tables.")
 
@@ -237,12 +173,12 @@ def handle_full_tables(config, metadata, db):
                 sql_queries_map = sr.getSQL(metadata_for_table, schema, table, "yes", item["pk"], None)
                 chk_multipart_scd_filenames_in_uploads_folder(table)
 
-                if create_dwh_tables_if_needed(db, schema, table, sql_queries_map):
+                if sr.create_dwh_tables_if_needed(schema, table, sql_queries_map):
                     break
 
                 # Todo: how to improve this? passing alter_list is ugly but we want to avoid double db call
-                alter_list = create_external_table_if_needed(db, schema, table, metadata_for_table, config["gpfdist_addr"])
-                alter_dwh_table_if_needed(db, alter_list)
+                alter_list = sr.create_external_table_if_needed(schema, table, metadata_for_table, config["gpfdist_addr"])
+                sr.alter_dwh_table_if_needed(alter_list)
 
                 #in case some files were stuck here from prev. run
                 move_files_between_folders("processing", "retry", table)
@@ -252,9 +188,9 @@ def handle_full_tables(config, metadata, db):
                 for file in file_list:
                     try:
                         move_files_between_folders("uploads", "processing", file, True)
-                        load_data_from_external_table(db, metadata_for_table, schema, table)
+                        sr.load_data_from_external_table(metadata_for_table, schema, table)
                         scd_date = parse_datetime(file)
-                        apply_scd(db, metadata_for_table, schema, table, scd_date, item["pk"])
+                        sr.apply_scd(metadata_for_table, schema, table, scd_date, item["pk"])
                         move_files_between_folders("processing", "archive", table)
                     except Exception as e:
                         logging.error("SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(file, e))
@@ -264,13 +200,6 @@ def handle_full_tables(config, metadata, db):
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
 
     logging.info("End loading full tables.")
-
-def load_data_from_external_table(db, metadata_for_table, schema, table):
-    query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name=schema, table_name=table)
-    db.execute_non_query_in_transaction(query)
-    src_table = "ext_" + table
-    trg_table = "s_" + table
-    insert_data_from_external_table(db, schema, metadata_for_table, src_table, trg_table)
 
 TYPE_CONVERSION_MAP = {
     'uuid': 'character varying (166)'
@@ -298,8 +227,8 @@ def main():
         logging.debug("Metadata file: " + latest_metadata_file)
         metadata = read_metadata(latest_metadata_file)
 
-        #load_incremental_tables(config, metadata)
-        handle_full_tables(config, metadata, db)
+        #handle_incremental_tables(config, metadata)
+        handle_full_tables(config, metadata)
 
         logging.info('End Insight GP-Import.')
 
