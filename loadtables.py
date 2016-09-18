@@ -100,7 +100,7 @@ def read_metadata(filename):
 
 def move_files_between_folders(f_from, f_to, filename_pattern, full_match = False):
 
-    # TODO: only copy 6000 files at a time if load_type = incremental load
+    # TODO only copy 6000 files at a time if load_type = incremental load
     file_move_cnt = 0
     if not full_match:
         filename_pattern += "-"
@@ -176,7 +176,7 @@ def handle_full_tables(config, metadata):
                 if sr.create_dwh_tables_if_needed(table, sql_queries_map):
                     break
 
-                # Todo: how to improve this? passing alter_list is ugly but we want to avoid double db call
+                # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
                 alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"])
                 sr.alter_dwh_table_if_needed(alter_list)
 
@@ -206,12 +206,12 @@ TYPE_CONVERSION_MAP = {
 }
 
 def main():
-    # TODO:
+    # TODO
     # if there is a new Tableau(TM) version, and there are files from the
     # previous version, currently we only process the newest metadata, thus
     # we can't process the older csvs
 
-    # todo: handle execption in order not to stop all the table loads beacause of one table's problem
+    # TODO handle execption in order not to stop all the table loads beacause of one table's problem
 
     try:
         config_filename = sys.argv[1]
@@ -236,7 +236,6 @@ def main():
     except Exception as exception:
         logging.log(FATAL_ERROR, 'Unhandled exception occurred: {}'.format(exception))
         raise
-
 
 if __name__ == '__main__':
     main()
