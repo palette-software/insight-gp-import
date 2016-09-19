@@ -30,7 +30,8 @@ def get_table_columns_def_from_db(table):
 def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental = True):
     # TODO type also should be changed
     sql_alter_stmts = []
-    cols_def_from_db = get_table_columns_def_from_db('ext_' + table if not incremental else table)
+    cols_def_from_db = get_table_columns_def_from_db('ext_' + table)
+
     only_col_names = [cd[2] for cd in cols_def_from_db]
 
     for col_def in columns_def:
@@ -525,7 +526,7 @@ def manage_partitions(table):
         query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = _schema, table_name = table)
         _db.execute_in_transaction(query)
 
-def get_insert_data_from_external_table(metadata, src_table, trg_table):
+def get_insert_data_from_external_table_query(metadata, src_table, trg_table):
     query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
             get_columns_def(metadata, src_table, type_needed=False, p_id_needed=False) + \
             " ) \n" \
@@ -539,7 +540,7 @@ def get_insert_data_from_external_table(metadata, src_table, trg_table):
 def insert_data_from_external_table(metadata, src_table, trg_table):
 
     logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
-    sql = get_insert_data_from_external_table(metadata, src_table, trg_table)
+    sql = get_insert_data_from_external_table_query(metadata, src_table, trg_table)
     result = _db.execute_non_query_in_transaction(sql)
     logging.info("End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
 
@@ -560,7 +561,7 @@ def load_data_from_external_table(metadata_for_table, table):
     trg_table = "s_" + table
     insert_data_from_external_table(metadata_for_table, src_table, trg_table)
 
-def create_external_table_if_needed(table, metadata_for_table, gpfdist_addr):
+def create_external_table_if_needed(table, metadata_for_table, gpfdist_addr, incremental):
 
     ext_table = "ext_" + table
     ext_table_create_sql = get_create_external_table_query(metadata_for_table, table)
@@ -572,7 +573,7 @@ def create_external_table_if_needed(table, metadata_for_table, gpfdist_addr):
         logging.info("External table created: {table_name}".format(table_name = ext_table))
 
     # Check if structure has modifed
-    alter_list = gen_alter_cols_because_of_metadata_change(table, metadata_for_table, incremental=False)
+    alter_list = gen_alter_cols_because_of_metadata_change(table, metadata_for_table, incremental)
     gpfdist_addr_modified = ext_table_gpfdist_addr_modified(ext_table, gpfdist_addr)
 
     if alter_list != [] or gpfdist_addr_modified:
@@ -584,9 +585,15 @@ def create_external_table_if_needed(table, metadata_for_table, gpfdist_addr):
 def alter_dwh_table_if_needed(alter_list):
     _db.execute_non_query_in_transaction(alter_list)
 
-def create_dwh_tables_if_needed(table, sql_queries_map):
+def create_dwh_full_tables_if_needed(table, sql_queries_map):
     if not table_exists("h_" + table):
         _db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
         _db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
+        return True
+    return False
+
+def create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
+    if not table_exists(table):
+        get_create_incremental_table_query(metadata_for_table, table)
         return True
     return False

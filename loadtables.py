@@ -18,9 +18,9 @@ class PaletteFileParseError(Exception):
 class PaletteMultipartSCD(Exception):
     pass
 
-def list_files_from_upload_folder(filename_pattern, sort_order):
+def list_files_from_folder(folder_name, filename_pattern, sort_order):
     sorted_file_list = []
-    for root, dirs, files in os.walk("./uploads"):
+    for root, dirs, files in os.walk("./" + folder_name):
         for file in files:
             if re.match(filename_pattern + "-.*csv.gz", file) is not None:
                 sorted_file_list.append(file)
@@ -35,7 +35,7 @@ def list_files_from_upload_folder(filename_pattern, sort_order):
 
 def get_latest_metadata_file():
 
-    metadata_files = list_files_from_upload_folder("metadata", "desc")
+    metadata_files = list_files_from_folder("uploads", "metadata", "desc")
 
     #Get The full path for the latest metadata
     for root, dirs, files in os.walk("./uploads"):
@@ -122,6 +122,7 @@ def move_files_between_folders(f_from, f_to, filename_pattern, full_match = Fals
                 file_move_cnt += 1
 
     logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to))
+    return file_move_cnt
 
 def parse_datetime(filename):
     # 'users-2016-09-14--07-48-13--seq0000--part0000-csv-09-14--07-48-f31c477b94cf356270439b096942d10d.csv.gz'
@@ -147,17 +148,55 @@ def get_metadata_for_table(metadata, table):
             metadata_for_table.append(m)
     return metadata_for_table
 
+def processing_retry_folder(table, metadata_for_table):
+
+    file_list = list_files_from_folder("retry", table, "asc")
+    if file_list == []:
+        return
+
+    logging.info("Start processing retry folder for table: {}".format(table))
+    for file in file_list:
+        try:
+            logging.info("Start processing file: {}".format(file))
+            move_files_between_folders("retry", "processing", file, True)
+            sr.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
+            move_files_between_folders("processing", "archive", table)
+            logging.info("End processing file: {}".format(file))
+        except Exception as e:
+            logging.error("Incremental Load RETRY failed: {}. File moved to retried folder and will not be processed further. Exception: {}".format(file, e))
+            move_files_between_folders("processing", "retried", file, True)
+
+    logging.info("End processing retry folder for table: {}".format(table))
+
 
 def handle_incremental_tables(config, metadata):
 
     logging.info("Start loading incremental tables.")
 
     for table in config["Tables"]["Incremental"]:
-        if table == "threadinfo":
-            metadata_for_table = get_metadata_for_table(metadata, table)
-            sr.insert_data_from_external_table(metadata_for_table, "ext_threadinfo", "threadinfo")
-            (sr.get_create_external_table_query(metadata_for_table, table))
-            (sr.get_create_incremental_table_query(metadata_for_table, table))
+        try:
+            if table == "threadinfo":
+
+                logging.info("Start processing table: {}".format(table))
+
+                metadata_for_table = get_metadata_for_table(metadata, table)
+                processing_retry_folder(table, metadata_for_table)
+                if sr.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
+                    break
+
+                # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
+                alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"], incremental = True)
+                sr.alter_dwh_table_if_needed(alter_list)
+                move_files_between_folders("uploads", "processing", table)
+                sr.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
+                move_files_between_folders("processing", "archive", table)
+
+                logging.info("End processing table: {}".format(table))
+
+        except Exception as e:
+            logging.error("Processing failed for: {}. Exception: {}".format(table, e))
+            move_files_between_folders("processing", "retry", table)
+            raise
 
     logging.info("End loading incremental tables.")
 
@@ -178,18 +217,18 @@ def handle_full_tables(config, metadata):
                 sql_queries_map = sr.getSQL(metadata_for_table, table, "yes", item["pk"], None)
                 chk_multipart_scd_filenames_in_uploads_folder(table)
 
-                if sr.create_dwh_tables_if_needed(table, sql_queries_map):
+                if sr.create_dwh_full_tables_if_needed(table, sql_queries_map):
                     break
 
                 # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
-                alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"])
+                alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"], incremental = False)
                 sr.alter_dwh_table_if_needed(alter_list)
 
                 #in case some files were stuck here from prev. run
                 move_files_between_folders("processing", "retry", table)
 
                 #we have to deal with "full table" files one by one in ascending order
-                file_list = list_files_from_upload_folder(table, "asc")
+                file_list = list_files_from_folder("uploads", table, "asc")
                 for file in file_list:
                     try:
                         move_files_between_folders("uploads", "processing", file, True)
@@ -200,11 +239,9 @@ def handle_full_tables(config, metadata):
                     except Exception as e:
                         logging.error("SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(file, e))
                         move_files_between_folders("processing", "retry", file, True)
-                        raise
                 logging.info("End processing table: {}".format(table))
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
-            raise
 
     logging.info("End loading full tables.")
 
