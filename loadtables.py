@@ -103,7 +103,7 @@ def read_metadata(filename):
     columns = columns[1:]
 
     columns = sorted(columns, key = lambda x:int(x["attnum"]))
-    
+
     return columns
 
 def move_files_between_folders(f_from, f_to, filename_pattern, full_match = False):
@@ -179,28 +179,26 @@ def handle_incremental_tables(config, metadata):
 
     for table in config["Tables"]["Incremental"]:
         try:
-            if table == "threadinfo":
 
-                logging.info("Start processing table: {}".format(table))
+            logging.info("Start processing table: {}".format(table))
 
-                metadata_for_table = get_metadata_for_table(metadata, table)
-                processing_retry_folder(table, metadata_for_table)
-                if sr.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
-                    break
+            metadata_for_table = get_metadata_for_table(metadata, table)
+            processing_retry_folder(table, metadata_for_table)
+            if sr.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
+                continue
 
-                # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
-                alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"], incremental = True)
-                sr.alter_dwh_table_if_needed(alter_list)
-                move_files_between_folders("uploads", "processing", table)
-                sr.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
-                move_files_between_folders("processing", "archive", table)
+            # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
+            alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"], incremental = True)
+            sr.alter_dwh_table_if_needed(alter_list)
+            move_files_between_folders("uploads", "processing", table)
+            sr.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
+            move_files_between_folders("processing", "archive", table)
 
-                logging.info("End processing table: {}".format(table))
+            logging.info("End processing table: {}".format(table))
 
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
             move_files_between_folders("processing", "retry", table)
-            raise
 
     logging.info("End loading incremental tables.")
 
@@ -215,35 +213,34 @@ def handle_full_tables(config, metadata):
         try:
             table = item["name"]
 
-            if table == "users":
-                logging.info("Start processing table: {}".format(table))
-                metadata_for_table = get_metadata_for_table(metadata, table)
-                sql_queries_map = sr.getSQL(metadata_for_table, table, "yes", item["pk"], None)
-                chk_multipart_scd_filenames_in_uploads_folder(table)
+            logging.info("Start processing table: {}".format(table))
+            metadata_for_table = get_metadata_for_table(metadata, table)
+            sql_queries_map = sr.getSQL(metadata_for_table, table, "yes", item["pk"], None)
+            chk_multipart_scd_filenames_in_uploads_folder(table)
 
-                if sr.create_dwh_full_tables_if_needed(table, sql_queries_map):
-                    break
+            if sr.create_dwh_full_tables_if_needed(table, sql_queries_map):
+                continue
 
-                # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
-                alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"], incremental = False)
-                sr.alter_dwh_table_if_needed(alter_list)
+            # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
+            alter_list = sr.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"], incremental = False)
+            sr.alter_dwh_table_if_needed(alter_list)
 
-                #in case some files were stuck here from prev. run
-                move_files_between_folders("processing", "retry", table)
+            #in case some files were stuck here from prev. run
+            move_files_between_folders("processing", "retry", table)
 
-                #we have to deal with "full table" files one by one in ascending order
-                file_list = list_files_from_folder("uploads", table, "asc")
-                for file in file_list:
-                    try:
-                        move_files_between_folders("uploads", "processing", file, True)
-                        sr.load_data_from_external_table(metadata_for_table, table)
-                        scd_date = parse_datetime(file)
-                        sr.apply_scd(metadata_for_table, table, scd_date, item["pk"])
-                        move_files_between_folders("processing", "archive", table)
-                    except Exception as e:
-                        logging.error("SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(file, e))
-                        move_files_between_folders("processing", "retry", file, True)
-                logging.info("End processing table: {}".format(table))
+            #we have to deal with "full table" files one by one in ascending order
+            file_list = list_files_from_folder("uploads", table, "asc")
+            for file in file_list:
+                try:
+                    move_files_between_folders("uploads", "processing", file, True)
+                    sr.load_data_from_external_table(metadata_for_table, table)
+                    scd_date = parse_datetime(file)
+                    sr.apply_scd(metadata_for_table, table, scd_date, item["pk"])
+                    move_files_between_folders("processing", "archive", table)
+                except Exception as e:
+                    logging.error("SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(file, e))
+                    move_files_between_folders("processing", "retry", file, True)
+            logging.info("End processing table: {}".format(table))
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
 

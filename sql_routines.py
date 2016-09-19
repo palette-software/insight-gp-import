@@ -83,9 +83,9 @@ def get_columns_def(columns_def, table, type_needed = True, p_id_needed = True):
     cols_def = ""
     if p_id_needed:
         if type_needed:
-            cols_def += ", \"p_id\" bigserial\n , "
+            cols_def += ", \"p_id\" bigserial\n"
         else:
-            cols_def += ", \"p_id\"\n , "
+            cols_def += ", \"p_id\"\n"
 
     if type_needed:
         cols_def += ", \"p_filepath\" varchar (500)\n"
@@ -124,7 +124,7 @@ def get_create_incremental_table_query(columns_def, table):
     query += "."
     query += "\"" + table.lower() + "\""
     query += "\n(\n"
-    query += get_columns_def(columns_def, _schema, table)
+    query += get_columns_def(columns_def, table, table)
     query += ")"
     query += " WITH (appendonly=true, orientation=row, compresstype=quicklz)"
 
@@ -594,6 +594,7 @@ def create_dwh_full_tables_if_needed(table, sql_queries_map):
 
 def create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
     if not table_exists(table):
-        get_create_incremental_table_query(metadata_for_table, table)
+        sql = get_create_incremental_table_query(metadata_for_table, table)
+        _db.execute_non_query_in_transaction(sql)
         return True
     return False
