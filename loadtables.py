@@ -185,6 +185,7 @@ def handle_incremental_tables(config, metadata):
             metadata_for_table = get_metadata_for_table(metadata, table)
             processing_retry_folder(table, metadata_for_table)
             if sr.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
+                logging.info("Table created: {}".format(table))
                 continue
 
             # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
@@ -219,6 +220,7 @@ def handle_full_tables(config, metadata):
             chk_multipart_scd_filenames_in_uploads_folder(table)
 
             if sr.create_dwh_full_tables_if_needed(table, sql_queries_map):
+                logging.info("Table created: {}".format(table))
                 continue
 
             # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
