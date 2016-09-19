@@ -99,8 +99,11 @@ def read_metadata(filename):
                 metadata_dict["type"] = TYPE_CONVERSION_MAP[metadata_dict["type"]]
             columns.append(metadata_dict)
 
-    columns = sorted(columns, key=lambda x:int(x['attnum']))
+    #Remove header
+    columns = columns[1:]
 
+    columns = sorted(columns, key = lambda x:int(x["attnum"]))
+    
     return columns
 
 def move_files_between_folders(f_from, f_to, filename_pattern, full_match = False):

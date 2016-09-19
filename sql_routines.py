@@ -28,7 +28,7 @@ def get_table_columns_def_from_db(table):
     return _db.execute_in_transaction(sql, params)
 
 def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental = True):
-    # TODO type also should be changed
+    # TODO type also should be checked
     sql_alter_stmts = []
     cols_def_from_db = get_table_columns_def_from_db('ext_' + table)
 

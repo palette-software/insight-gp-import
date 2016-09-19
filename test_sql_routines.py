@@ -408,6 +408,7 @@ publicthreadinfothread_countinteger9
 publicthreadinfoworking_setbigint10
 publicthreadinfothread_levelboolean11
 publicthreadinfostart_tstimestamp without time zone8'''
+
         with open(filename, 'wb') as gz:
             data = bytes(file_data, 'utf-8')
             s_out = gzip.compress(data)
