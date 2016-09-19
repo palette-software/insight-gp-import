@@ -525,21 +525,24 @@ def manage_partitions(table):
         query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = _schema, table_name = table)
         _db.execute_in_transaction(query)
 
+def get_insert_data_from_external_table(metadata, src_table, trg_table):
+    query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
+            get_columns_def(metadata, src_table, type_needed=False, p_id_needed=False) + \
+            " ) \n" \
+            "SELECT \n" + \
+            get_columns_def(metadata, src_table, type_needed=False, p_id_needed=False) + \
+            " FROM {schema_name}.{src_table_name}"
+
+    query = query.format(schema_name=_schema, src_table_name=src_table, trg_table_name=trg_table)
+    return query
+
 def insert_data_from_external_table(metadata, src_table, trg_table):
 
     logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
-
-    query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
-            get_columns_def(metadata, src_table, type_needed = False, p_id_needed = False) + \
-            " ) \n" \
-            "SELECT \n" + \
-                get_columns_def(metadata, src_table, type_needed = False, p_id_needed = False) + \
-            " FROM {schema_name}.{src_table_name}"
-
-    query = query.format(schema_name = _schema, src_table_name = src_table, trg_table_name = trg_table)
-    result = _db.execute_non_query_in_transaction(query)
-
+    sql = get_insert_data_from_external_table(metadata, src_table, trg_table)
+    result = _db.execute_non_query_in_transaction(sql)
     logging.info("End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
+
 
 def apply_scd(metadata_for_table, table, scd_date, pk):
 

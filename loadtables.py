@@ -153,10 +153,11 @@ def handle_incremental_tables(config, metadata):
     logging.info("Start loading incremental tables.")
 
     for table in config["Tables"]["Incremental"]:
-        metadata_for_table = get_metadata_for_table(metadata, table)
         if table == "threadinfo":
-            (sr.get_create_external_table_query(metadata_for_table, config["Schema"], table))
-            (sr.get_create_incremental_table_query(metadata_for_table, config["Schema"], table))
+            metadata_for_table = get_metadata_for_table(metadata, table)
+            sr.insert_data_from_external_table(metadata_for_table, "ext_threadinfo", "threadinfo")
+            (sr.get_create_external_table_query(metadata_for_table, table))
+            (sr.get_create_incremental_table_query(metadata_for_table, table))
 
     logging.info("End loading incremental tables.")
 
@@ -233,7 +234,7 @@ def main():
         logging.debug("Metadata file: " + latest_metadata_file)
         metadata = read_metadata(latest_metadata_file)
 
-        #handle_incremental_tables(config, metadata)
+        handle_incremental_tables(config, metadata)
         handle_full_tables(config, metadata)
 
         logging.info('End Insight GP-Import.')
