@@ -74,13 +74,17 @@ def setup_logging(filename, console_enabled, log_level):
     logging.addLevelName(FATAL_ERROR, 'FATAL')
 
 
-def parsed_line_to_metadata_obj(line):
-    coldef = sr.ColumnMetadata()
-    coldef.schema =line[0]
-    coldef.table = line[1]
-    coldef.name = line[2]
-    coldef.type = line[3]
-    coldef.attnum = line[4]
+def parsed_line_to_metadata_dict(line):
+
+    coldef = {}
+
+    coldef["schema"] = line[0]
+    coldef["table"] = line[1]
+    coldef["name"] = line[2]
+    coldef["type"] = line[3]
+    coldef["attnum"] = line[4]
+    coldef["length"] = 0
+    coldef["precision"] = 0
 
     return coldef
 
@@ -90,10 +94,10 @@ def read_metadata(filename):
     with gzip.open(filename, 'rt') as metadata_file:
         for line in metadata_file:
             parsed_line = line.strip('\n').split("\013")
-            metadata_obj = parsed_line_to_metadata_obj(parsed_line)
-            if metadata_obj.type in TYPE_CONVERSION_MAP.keys():
-                metadata_obj.type = TYPE_CONVERSION_MAP[metadata_obj.type]
-            columns.append(metadata_obj)
+            metadata_dict = parsed_line_to_metadata_dict(parsed_line)
+            if metadata_dict["type"] in TYPE_CONVERSION_MAP.keys():
+                metadata_dict["type"] = TYPE_CONVERSION_MAP[metadata_dict["type"]]
+            columns.append(metadata_dict)
     # TODO sort by attnum
 
     return columns
@@ -139,7 +143,7 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
 def get_metadata_for_table(metadata, table):
     metadata_for_table = []
     for m in metadata:
-        if m.table == table:
+        if m["table"] == table:
             metadata_for_table.append(m)
     return metadata_for_table
 
@@ -190,14 +194,16 @@ def handle_full_tables(config, metadata):
                         move_files_between_folders("uploads", "processing", file, True)
                         sr.load_data_from_external_table(metadata_for_table, table)
                         scd_date = parse_datetime(file)
-                        sr.apply_scd(metadata_for_table, schema, table, scd_date, item["pk"])
+                        sr.apply_scd(metadata_for_table, table, scd_date, item["pk"])
                         move_files_between_folders("processing", "archive", table)
                     except Exception as e:
                         logging.error("SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(file, e))
                         move_files_between_folders("processing", "retry", file, True)
+                        raise
                 logging.info("End processing table: {}".format(table))
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
+            raise
 
     logging.info("End loading full tables.")
 

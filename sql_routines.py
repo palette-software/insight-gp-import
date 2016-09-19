@@ -4,17 +4,6 @@ import datetime
 _db = None
 _schema = ""
 
-class ColumnMetadata(object):
-
-    def __init__(self):
-        self.schema = ""
-        self.table = ""
-        self.attnum = -1
-        self.name = ""
-        self.type = ""
-        self.length = 0
-        self.precision = 0
-
 def init(db, schema):
     global _db, _schema
     _db = db
@@ -45,8 +34,8 @@ def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental = 
     only_col_names = [cd[2] for cd in cols_def_from_db]
 
     for col_def in columns_def:
-        if col_def.name not in only_col_names:
-            sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def.name + " " + col_def.type + "  default null;\n"
+        if col_def["name"] not in only_col_names:
+            sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def["name"] + " " + col_def["type"] + "  default null;\n"
             if incremental:
                 sql_alter_stmts.append(sql_stmt.format(schema_name=_schema, table_name=table, table_type=""))
             else:
@@ -103,10 +92,10 @@ def get_columns_def(columns_def, table, type_needed = True, p_id_needed = True):
         cols_def += ", \"p_filepath\"\n"
 
     for column in columns_def:
-        column_name = column.name
-        column_type = column.type
-        column_length = column.length
-        column_precision = column.precision
+        column_name = column["name"]
+        column_type = column["type"]
+        column_length = column["length"]
+        column_precision = column["precision"]
 
         #e.g. for column name plus full type def: "name character varying(500)"
         cols_def += " , \"" + column_name.lower() + "\""
@@ -165,17 +154,21 @@ def get_create_external_table_query(columns_def, table):
     return query
 
 def add_2_cols_to_coldef(coldef, table):
-    cm1 = ColumnMetadata()
-    cm1.schema = _schema
-    cm1.table = table
-    cm1.name = 'p_filepath'
-    cm1.type = 'VARCHAR (500)'
+    cm1 = {}
+    cm1["schema"] = _schema
+    cm1["table"] = table
+    cm1["name"] = 'p_filepath'
+    cm1["type"] = 'VARCHAR (500)'
+    cm1["length"] = 0
+    cm1["precision"] = 0
 
-    cm2 = ColumnMetadata()
-    cm2.schema = _schema
-    cm2.table = table
-    cm2.name = 'p_cre_date'
-    cm2.type = 'TIMESTAMP WITHOUT TIME ZONE'
+    cm2 = {}
+    cm2["schema"] = _schema
+    cm2["table"] = table
+    cm2["name"] = 'p_cre_date'
+    cm2["type"] = 'TIMESTAMP WITHOUT TIME ZONE'
+    cm2["length"] = 0
+    cm2["precision"] = 0
 
     new_coldef = coldef[:]
 
@@ -375,19 +368,18 @@ def getSQL(columns_def, table, scd, pk, scdDate):
     # TODO quick&dirty part1 :)
     columns_def_extended = add_2_cols_to_coldef(columns_def, table)
 
-
     for i in range(len(columns_def_extended)):
         column = columns_def_extended[i]
-        column_name = column.name
+        column_name = column["name"]
         if ("," + column_name.upper() + ",") not in ",P_ID,P_ACTIVE_FLAG,P_VALID_FROM,P_VALID_TO,":
             strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL = strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL + "  " + column_name.lower()
             strNATURAL_COLS_WITHOUT_TYPES_WITH_H = strNATURAL_COLS_WITHOUT_TYPES_WITH_H + "  h_" + table + "." + column_name.lower()
             strNATURAL_COLS_WITHOUT_TYPES_WITH_S = strNATURAL_COLS_WITHOUT_TYPES_WITH_S + "  s_" + table + "." + column_name.lower()
             strNATURAL_COLS_WITHOUT_TYPES_WITH_T = strNATURAL_COLS_WITHOUT_TYPES_WITH_T + "  t." + column_name.lower()
-            strNATURAL_COLS_WITH_TYPES = strNATURAL_COLS_WITH_TYPES + "  " + column_name.lower() + " " + get_column_full_type_def(column.type, column.length, column.precision)
+            strNATURAL_COLS_WITH_TYPES = strNATURAL_COLS_WITH_TYPES + "  " + column_name.lower() + " " + get_column_full_type_def(column["type"], column["length"], column["precision"])
 
             colSCD_ActPrevListWithoutTypes_String = "  act_#COL, \n  prev_#COL".replace("#TABLE", table).replace("#COL", column_name.lower())
-            colSCD_ActPrevListWithTypes_String = "  act_#COL #DATA_TYPE, \n  prev_#COL #DATA_TYPE".replace("#TABLE", table).replace("#COL", column_name.lower()).replace("#DATA_TYPE",get_column_full_type_def(column.type, column.length, column.precision))
+            colSCD_ActPrevListWithTypes_String = "  act_#COL #DATA_TYPE, \n  prev_#COL #DATA_TYPE".replace("#TABLE", table).replace("#COL", column_name.lower()).replace("#DATA_TYPE",get_column_full_type_def(column["type"], column["length"], column["precision"]))
 
             colSCD_SqlType_String = """    CASE \n
                   WHEN h_#TABLE.#COL IS NULL THEN 'INSERT' \n
@@ -413,7 +405,7 @@ def getSQL(columns_def, table, scd, pk, scdDate):
             for pk_part in pk:
                 if pk_part.lower() == column_name.lower():
                     strACT_PREV_LIST_WITHOUT_TYPES = strACT_PREV_LIST_WITHOUT_TYPES + "  " + pk_part
-                    strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + "  #COL #DATA_TYPE".replace("#COL", pk_part).replace("#DATA_TYPE",get_column_full_type_def(column.type, column.length, column.precision))
+                    strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + "  #COL #DATA_TYPE".replace("#COL", pk_part).replace("#DATA_TYPE",get_column_full_type_def(column["type"], column["length"], column["precision"]))
                     strSQL_TYPE = colSCD_SqlType_String.replace("#COL", pk_part)
                     strACT_PREV_DEF = strACT_PREV_DEF + "    s_#TABLE.#COL".replace("#TABLE", table).replace("#COL", pk_part)
                 else:
