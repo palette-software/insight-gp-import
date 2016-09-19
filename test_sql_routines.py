@@ -1,6 +1,9 @@
 from unittest import TestCase
 import sql_routines as sr
+import loadtables as lt
 import re
+import gzip
+
 
 class TestSqlRoutines(TestCase):
 
@@ -389,3 +392,49 @@ class TestSqlRoutines(TestCase):
         threadinfo_insert = sr.get_insert_data_from_external_table_query(metadata_for_threadinfo, "ext_threadinfo", "threadinfo")
         threadinfo_insert= re.sub("[\s+]", "", threadinfo_insert)
         self.assertTrue(result_sql == threadinfo_insert)
+
+
+    def test_metadata_sort(self):
+
+        filename = 'test_metadata_sort.gz'
+        file_data = '''publicthreadinfohost_nametext1
+publicthreadinfoprocesstext2
+publicthreadinfopidbigint4
+publicthreadinfotidbigint5
+publicthreadinfocpu_timebigint6
+publicthreadinfotstimestamp without time zone3
+publicthreadinfopoll_cycle_tstimestamp without time zone7
+publicthreadinfothread_countinteger9
+publicthreadinfoworking_setbigint10
+publicthreadinfothread_levelboolean11
+publicthreadinfostart_tstimestamp without time zone8'''
+        with open(filename, 'wb') as gz:
+            data = bytes(file_data, 'utf-8')
+            s_out = gzip.compress(data)
+            gz.write(s_out)
+
+        trg_metadata_for_threadinfo = [
+            {'type': 'text', 'name': 'host_name', 'precision': 0, 'attnum': '1', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'},
+            {'type': 'text', 'name': 'process', 'precision': 0, 'attnum': '2', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'},
+            {'type': 'timestamp without time zone', 'name': 'ts', 'precision': 0, 'attnum': '3', 'schema': 'public',
+             'length': 0, 'table': 'threadinfo'},
+            {'type': 'bigint', 'name': 'pid', 'precision': 0, 'attnum': '4', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'},
+            {'type': 'bigint', 'name': 'tid', 'precision': 0, 'attnum': '5', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'},
+            {'type': 'bigint', 'name': 'cpu_time', 'precision': 0, 'attnum': '6', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'},
+            {'type': 'timestamp without time zone', 'name': 'poll_cycle_ts', 'precision': 0, 'attnum': '7',
+             'schema': 'public', 'length': 0, 'table': 'threadinfo'},
+            {'type': 'timestamp without time zone', 'name': 'start_ts', 'precision': 0, 'attnum': '8', 'schema': 'public',
+             'length': 0, 'table': 'threadinfo'},
+            {'type': 'integer', 'name': 'thread_count', 'precision': 0, 'attnum': '9', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'},
+            {'type': 'bigint', 'name': 'working_set', 'precision': 0, 'attnum': '10', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'},
+            {'type': 'boolean', 'name': 'thread_level', 'precision': 0, 'attnum': '11', 'schema': 'public', 'length': 0,
+             'table': 'threadinfo'}]
+
+        self.assertTrue(lt.read_metadata(filename) == trg_metadata_for_threadinfo)

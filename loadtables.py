@@ -98,7 +98,8 @@ def read_metadata(filename):
             if metadata_dict["type"] in TYPE_CONVERSION_MAP.keys():
                 metadata_dict["type"] = TYPE_CONVERSION_MAP[metadata_dict["type"]]
             columns.append(metadata_dict)
-    # TODO sort by attnum
+
+    columns = sorted(columns, key=lambda x:int(x['attnum']))
 
     return columns
 
