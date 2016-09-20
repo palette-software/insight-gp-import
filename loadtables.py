@@ -93,19 +93,22 @@ def parsed_line_to_metadata_dict(line):
 
 # TODO consider to use python csv loader
 def read_metadata(filename):
-    columns = []
+    ret = {}
     with gzip.open(filename, 'rt') as metadata_file:
         header_line = next(metadata_file)
         for line in metadata_file:
             parsed_line = line.strip('\n').split(VERTICAL_TAB)
             metadata_dict = parsed_line_to_metadata_dict(parsed_line)
+            if metadata_dict['table'] not in ret:
+                ret[metadata_dict['table']] = []
             if metadata_dict["type"] in TYPE_CONVERSION_MAP.keys():
                 metadata_dict["type"] = TYPE_CONVERSION_MAP[metadata_dict["type"]]
-            columns.append(metadata_dict)
+            ret[metadata_dict['table']].append(metadata_dict)
 
-    columns = sorted(columns, key=lambda x: int(x["attnum"]))
+    for key, value in ret.items():
+        ret[key] = sorted(value, key=lambda x: int(x["attnum"]))
 
-    return columns
+    return ret
 
 
 def move_files_between_folders(f_from, f_to, filename_pattern, full_match=False):
@@ -150,11 +153,6 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
             if re.match(table + ". + part0000.+csv\.gz", file) is None:
                 raise PaletteMultipartSCD("MultiPart SCD table, STOPPING! File = {}".format(file))
 
-# TODO should be deleted after using 2 dims metadata
-def get_metadata_for_table(metadata, table):
-    return [m for m in metadata if m["table"] == table]
-
-
 def processing_retry_folder(table, metadata_for_table):
     file_list = list_files_from_folder("retry", table, "asc")
     if len(file_list) == 0:
@@ -185,8 +183,7 @@ def handle_incremental_tables(config, metadata):
 
             logging.info("Start processing table: {}".format(table))
 
-            # TODO metadata should be 2 dimensional list that can be addressed by table name
-            metadata_for_table = get_metadata_for_table(metadata, table)
+            metadata_for_table = metadata[table]
             sql_routines.manage_partitions(table)
             processing_retry_folder(table, metadata_for_table)
             if sql_routines.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
@@ -222,7 +219,7 @@ def handle_full_tables(config, metadata):
             table = item["name"]
 
             logging.info("Start processing table: {}".format(table))
-            metadata_for_table = get_metadata_for_table(metadata, table)
+            metadata_for_table = metadata[table]
             sql_queries_map = sql_routines.getSQL(metadata_for_table, table, "yes", item["pk"], None)
             chk_multipart_scd_filenames_in_uploads_folder(table)
 

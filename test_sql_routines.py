@@ -415,28 +415,31 @@ publicthreadinfostart_tstimestamp without time zone8'''
             s_out = gzip.compress(data)
             gz.write(s_out)
 
-        trg_metadata_for_threadinfo = [
-            {'type': 'text', 'name': 'host_name', 'precision': 0, 'attnum': '1', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'},
-            {'type': 'text', 'name': 'process', 'precision': 0, 'attnum': '2', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'},
-            {'type': 'timestamp without time zone', 'name': 'ts', 'precision': 0, 'attnum': '3', 'schema': 'public',
-             'length': 0, 'table': 'threadinfo'},
-            {'type': 'bigint', 'name': 'pid', 'precision': 0, 'attnum': '4', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'},
-            {'type': 'bigint', 'name': 'tid', 'precision': 0, 'attnum': '5', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'},
-            {'type': 'bigint', 'name': 'cpu_time', 'precision': 0, 'attnum': '6', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'},
-            {'type': 'timestamp without time zone', 'name': 'poll_cycle_ts', 'precision': 0, 'attnum': '7',
-             'schema': 'public', 'length': 0, 'table': 'threadinfo'},
-            {'type': 'timestamp without time zone', 'name': 'start_ts', 'precision': 0, 'attnum': '8', 'schema': 'public',
-             'length': 0, 'table': 'threadinfo'},
-            {'type': 'integer', 'name': 'thread_count', 'precision': 0, 'attnum': '9', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'},
-            {'type': 'bigint', 'name': 'working_set', 'precision': 0, 'attnum': '10', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'},
-            {'type': 'boolean', 'name': 'thread_level', 'precision': 0, 'attnum': '11', 'schema': 'public', 'length': 0,
-             'table': 'threadinfo'}]
+        trg_metadata_for_threadinfo = {
+            'threadinfo': [
+                {'type': 'text', 'name': 'host_name', 'precision': 0, 'attnum': '1', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'},
+                {'type': 'text', 'name': 'process', 'precision': 0, 'attnum': '2', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'},
+                {'type': 'timestamp without time zone', 'name': 'ts', 'precision': 0, 'attnum': '3', 'schema': 'public',
+                 'length': 0, 'table': 'threadinfo'},
+                {'type': 'bigint', 'name': 'pid', 'precision': 0, 'attnum': '4', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'},
+                {'type': 'bigint', 'name': 'tid', 'precision': 0, 'attnum': '5', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'},
+                {'type': 'bigint', 'name': 'cpu_time', 'precision': 0, 'attnum': '6', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'},
+                {'type': 'timestamp without time zone', 'name': 'poll_cycle_ts', 'precision': 0, 'attnum': '7',
+                 'schema': 'public', 'length': 0, 'table': 'threadinfo'},
+                {'type': 'timestamp without time zone', 'name': 'start_ts', 'precision': 0, 'attnum': '8', 'schema': 'public',
+                 'length': 0, 'table': 'threadinfo'},
+                {'type': 'integer', 'name': 'thread_count', 'precision': 0, 'attnum': '9', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'},
+                {'type': 'bigint', 'name': 'working_set', 'precision': 0, 'attnum': '10', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'},
+                {'type': 'boolean', 'name': 'thread_level', 'precision': 0, 'attnum': '11', 'schema': 'public', 'length': 0,
+                 'table': 'threadinfo'}
+            ]
+        }
 
-        self.assertEquals(lt.read_metadata(filename), trg_metadata_for_threadinfo)
+        self.assertEqual(lt.read_metadata(filename), trg_metadata_for_threadinfo)
