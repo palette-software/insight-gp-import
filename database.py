@@ -1,6 +1,7 @@
 import logging
 import psycopg2
 
+# TODO Re view functions in here...
 class Database(object):
     def __init__(self, kwargs):
         logging.debug("Start creating database connection")

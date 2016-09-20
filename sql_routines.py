@@ -1,6 +1,9 @@
 import logging
 import datetime
 
+
+# TODO Create class from this module
+
 _db = None
 _schema = ""
 
@@ -592,6 +595,7 @@ def create_dwh_full_tables_if_needed(table, sql_queries_map):
     return False
 
 def create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
+    # TODO Check if metadata exists for table. Raise execption
     if not table_exists(table):
         sql = get_create_incremental_table_query(metadata_for_table, table)
         _db.execute_non_query_in_transaction(sql)
