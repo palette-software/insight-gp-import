@@ -95,15 +95,13 @@ def parsed_line_to_metadata_dict(line):
 def read_metadata(filename):
     columns = []
     with gzip.open(filename, 'rt') as metadata_file:
+        header_line = next(metadata_file)
         for line in metadata_file:
             parsed_line = line.strip('\n').split(VERTICAL_TAB)
             metadata_dict = parsed_line_to_metadata_dict(parsed_line)
             if metadata_dict["type"] in TYPE_CONVERSION_MAP.keys():
                 metadata_dict["type"] = TYPE_CONVERSION_MAP[metadata_dict["type"]]
             columns.append(metadata_dict)
-
-    # Remove header
-    columns = columns[1:]
 
     columns = sorted(columns, key=lambda x: int(x["attnum"]))
 

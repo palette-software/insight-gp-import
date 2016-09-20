@@ -397,7 +397,8 @@ class TestSqlRoutines(TestCase):
     def test_metadata_sort(self):
 
         filename = 'test_metadata_sort.gz'
-        file_data = '''publicthreadinfohost_nametext1
+        file_data = '''schemanametablenamecolumnnameformat_typeattnum
+publicthreadinfohost_nametext1
 publicthreadinfoprocesstext2
 publicthreadinfopidbigint4
 publicthreadinfotidbigint5
@@ -438,4 +439,4 @@ publicthreadinfostart_tstimestamp without time zone8'''
             {'type': 'boolean', 'name': 'thread_level', 'precision': 0, 'attnum': '11', 'schema': 'public', 'length': 0,
              'table': 'threadinfo'}]
 
-        self.assertTrue(lt.read_metadata(filename) == trg_metadata_for_threadinfo)
+        self.assertEquals(lt.read_metadata(filename), trg_metadata_for_threadinfo)
