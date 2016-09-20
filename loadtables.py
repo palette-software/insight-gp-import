@@ -43,8 +43,6 @@ def get_latest_metadata_file():
             if file == metadata_files[0]:
                 return os.path.join(root, file)
 
-
-
 def load_config(filename):
     with open(filename) as config_file:
         config = yaml.load(config_file)
@@ -72,7 +70,6 @@ def setup_logging(filename, console_enabled, log_level):
 
     # We need a custom level to have 'FATAL' appear in log files (instead of CRITICAL)
     logging.addLevelName(FATAL_ERROR, 'FATAL')
-
 
 def parsed_line_to_metadata_dict(line):
 
@@ -172,7 +169,6 @@ def processing_retry_folder(table, metadata_for_table):
 
     logging.info("End processing retry folder for table: {}".format(table))
 
-
 def handle_incremental_tables(config, metadata):
 
     logging.info("Start loading incremental tables.")
@@ -183,6 +179,7 @@ def handle_incremental_tables(config, metadata):
             logging.info("Start processing table: {}".format(table))
 
             metadata_for_table = get_metadata_for_table(metadata, table)
+            sr.manage_partitions(table)
             processing_retry_folder(table, metadata_for_table)
             if sr.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
                 logging.info("Table created: {}".format(table))

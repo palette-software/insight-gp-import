@@ -544,7 +544,6 @@ def insert_data_from_external_table(metadata, src_table, trg_table):
     result = _db.execute_non_query_in_transaction(sql)
     logging.info("End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
 
-
 def apply_scd(metadata_for_table, table, scd_date, pk):
 
     logging.info("Start applying SCD. Table = {}, SCD Date: {}".format(table, scd_date))
