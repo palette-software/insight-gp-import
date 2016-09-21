@@ -289,7 +289,7 @@ def main():
         db = Database(config)
         sql_routines.init(db, config["Schema"])
 
-        latest_metadata_file = get_latest_metadata_file()
+        latest_metadata_file = get_latest_metadata_file(config['storage_path'])
         logging.debug("Metadata file: " + latest_metadata_file)
         metadata = read_metadata(latest_metadata_file)
 
