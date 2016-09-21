@@ -1,9 +1,15 @@
+
+-- With superuser: 
+-- set search_path = 'palette'; set role = palette;
 drop schema py_load_tables_test cascade;
 
 create schema py_load_tables_test;
 grant all on schema py_load_tables_test to palette_etl_user;
 grant all on schema py_load_tables_test to palette_palette_updater;
 ;
+
+-- With palette_palette_updater: 
+-- set search_path = 'py_load_tables_test'; set role = palette_palette_updater;
 
 CREATE TABLE "p_threadinfo"(
  "p_id" BigSerial NOT NULL,
