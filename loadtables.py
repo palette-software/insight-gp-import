@@ -112,22 +112,17 @@ def read_metadata(filename):
     return ret
 
 
-def move_files_between_folders(f_from, f_to, filename_pattern, full_match=False):
+def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, full_match=False):
     # TODO only copy 6000 files at a time if load_type = incremental load
+    from_path = os.path.join(storage_path, f_from)
     file_move_cnt = 0
     if not full_match:
         filename_pattern += "-"
-    for root, dirs, files in os.walk("./" + f_from):
+    for root, dirs, files in os.walk(from_path):
         for file in files:
             if re.match(filename_pattern, file) is not None:
                 src = os.path.join(root, file)
-                # TODO Make trg calculation nicer
-                # TODO handle ./uploads. Relative path? From config? How?
-                if f_from == "uploads":
-                    trg = os.path.join(root, file).replace("./uploads" + os.path.sep + "public" + os.path.sep,
-                                                           "./" + f_to + os.path.sep)
-                else:
-                    trg = os.path.join(root, file).replace("./" + f_from + os.path.sep, "./" + f_to + os.path.sep)
+                trg = get_target_path(f_from, f_to, src)
 
                 os.makedirs(os.path.dirname(trg), exist_ok=True)
                 shutil.move(src, trg)
@@ -135,6 +130,14 @@ def move_files_between_folders(f_from, f_to, filename_pattern, full_match=False)
 
     logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to))
     return file_move_cnt
+
+
+def get_target_path(f_from, f_to, src):
+    if f_from == "uploads":
+        trg = src.replace("uploads" + os.path.sep + "public", f_to)
+    else:
+        trg = src.replace(f_from + os.path.sep, f_to + os.path.sep)
+    return trg
 
 
 def parse_datetime(filename):
