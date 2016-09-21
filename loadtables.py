@@ -189,11 +189,11 @@ def handle_incremental_tables(config, metadata):
             logging.info("Start processing table: {}".format(table))
 
             metadata_for_table = metadata[table]
-            sql_routines.manage_partitions(table)
             processing_retry_folder(config["storage_path"], table, metadata_for_table)
             if sql_routines.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
                 logging.info("Table created: {}".format(table))
                 continue
+            sql_routines.manage_partitions(table)
 
             adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table)
             move_files_between_folders(data_path, "uploads", "processing", table)
