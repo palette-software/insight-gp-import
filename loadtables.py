@@ -190,11 +190,7 @@ def handle_incremental_tables(config, metadata):
                 logging.info("Table created: {}".format(table))
                 continue
 
-            # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
-            # Always drop and recreate external table
-            alter_list = sql_routines.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"],
-                                                                      incremental=True)
-            sql_routines.alter_dwh_table_if_needed(alter_list)
+            adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table)
             move_files_between_folders("uploads", "processing", table)
             sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
             move_files_between_folders("processing", "archive", table)
@@ -227,10 +223,7 @@ def handle_full_tables(config, metadata):
                 logging.info("Table created: {}".format(table))
                 continue
 
-            # TODO how to improve this? passing alter_list is ugly but we want to avoid double db call
-            alter_list = sql_routines.create_external_table_if_needed(table, metadata_for_table, config["gpfdist_addr"],
-                                                                      incremental=False)
-            sql_routines.alter_dwh_table_if_needed(alter_list)
+            adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_for_table, table)
 
             # in case some files were stuck here from prev. run
             move_files_between_folders("processing", "retry", table)
@@ -254,6 +247,14 @@ def handle_full_tables(config, metadata):
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
 
     logging.info("End loading full tables.")
+
+
+def adjust_table_to_metadata(gpfdist_addr, incremental, metadata_for_table, table):
+    sql_routines.recreate_external_table(table, metadata_for_table, gpfdist_addr,
+                                         incremental)
+    # Check if structure has modifed
+    alter_list = sql_routines.gen_alter_cols_because_of_metadata_change(table, metadata_for_table, incremental)
+    sql_routines.alter_dwh_table_if_needed(alter_list)
 
 
 TYPE_CONVERSION_MAP = {

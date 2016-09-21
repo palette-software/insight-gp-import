@@ -1,16 +1,17 @@
 import logging
 import datetime
 
-
 # TODO Create class from this module
 
 _db = None
 _schema = ""
 
+
 def init(db, schema):
     global _db, _schema
     _db = db
     _schema = schema
+
 
 def get_table_columns_def_from_db(table):
     sql = """SELECT n.nspname as schemaname, c.relname as tablename,
@@ -30,7 +31,8 @@ def get_table_columns_def_from_db(table):
     params = {'schema': _schema, 'table': table}
     return _db.execute_in_transaction(sql, params)
 
-def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental = True):
+
+def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental=True):
     # TODO type also should be checked
     sql_alter_stmts = []
     cols_def_from_db = get_table_columns_def_from_db('ext_' + table)
@@ -39,14 +41,16 @@ def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental = 
 
     for col_def in columns_def:
         if col_def["name"] not in only_col_names:
-            sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def["name"] + " " + col_def["type"] + "  default null;\n"
+            sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def["name"] + " " + \
+                       col_def["type"] + "  default null;\n"
             if incremental:
                 sql_alter_stmts.append(sql_stmt.format(schema_name=_schema, table_name=table, table_type=""))
             else:
-                sql_alter_stmts.append(sql_stmt.format(schema_name = _schema, table_name = table, table_type = "s_"))
-                sql_alter_stmts.append(sql_stmt.format(schema_name = _schema, table_name = table, table_type = "h_"))
+                sql_alter_stmts.append(sql_stmt.format(schema_name=_schema, table_name=table, table_type="s_"))
+                sql_alter_stmts.append(sql_stmt.format(schema_name=_schema, table_name=table, table_type="h_"))
 
     return sql_alter_stmts
+
 
 def table_exists(table):
     sql = """SELECT COALESCE((  select table_name
@@ -64,8 +68,8 @@ def table_exists(table):
 
     return True
 
-def get_column_full_type_def(type, length, precision):
 
+def get_column_full_type_def(type, length, precision):
     query = ""
     column_def = ""
     column_def += type
@@ -81,8 +85,8 @@ def get_column_full_type_def(type, length, precision):
 
     return column_def
 
-def get_columns_def(columns_def, table, type_needed = True, p_id_needed = True):
 
+def get_columns_def(columns_def, table, type_needed=True, p_id_needed=True):
     cols_def = ""
     if p_id_needed:
         if type_needed:
@@ -101,7 +105,7 @@ def get_columns_def(columns_def, table, type_needed = True, p_id_needed = True):
         column_length = column["length"]
         column_precision = column["precision"]
 
-        #e.g. for column name plus full type def: "name character varying(500)"
+        # e.g. for column name plus full type def: "name character varying(500)"
         cols_def += " , \"" + column_name.lower() + "\""
         cols_def += " "
         if type_needed:
@@ -118,8 +122,8 @@ def get_columns_def(columns_def, table, type_needed = True, p_id_needed = True):
 
     return cols_def
 
-def get_create_incremental_table_query(columns_def, table):
 
+def get_create_incremental_table_query(columns_def, table):
     query = ""
 
     query += " CREATE TABLE "
@@ -134,8 +138,8 @@ def get_create_incremental_table_query(columns_def, table):
     logging.debug("get_create_incremental_table_query - \n" + query)
     return query
 
-def get_create_external_table_query(columns_def, table):
 
+def get_create_external_table_query(columns_def, table):
     query = ""
 
     query += " CREATE READABLE EXTERNAL TABLE "
@@ -156,6 +160,7 @@ def get_create_external_table_query(columns_def, table):
 
     logging.debug("getExternalCreateTableQuery - \n" + query)
     return query
+
 
 def add_2_cols_to_coldef(coldef, table):
     cm1 = {}
@@ -181,37 +186,15 @@ def add_2_cols_to_coldef(coldef, table):
 
     return new_coldef
 
-def ext_table_gpfdist_addr_modified(table, gpfdist_addr):
-    sql = """with base as (
-        SELECT n.nspname AS schemaname,
-                 c.relname AS tablename,
-                 ARRAY_TO_STRING(e.location,';')::text location,
-                 e.fmtopts,
-                 e.rejectlimit,
-                 e.rejectlimittype
-          FROM pg_class c
-            JOIN pg_exttable e ON (c.oid = e.reloid)
-            JOIN pg_namespace n ON (c.relnamespace = n.oid)
-          WHERE 1 = 1
-          AND n.nspname = %(schema)s
-          AND c.relname = %(table)s
-    )
-
-    SELECT count(1) as cnt
-    from base
-    WHERE
-        location not like %(gpfdist_addr)s"""
-
-    params = {'schema': _schema, 'table': table.lower(), 'gpfdist_addr': '%' + gpfdist_addr + '%.gz'}
-    result = False if _db.execute_in_transaction(sql, params)[0][0] == 0 else True
-    return result
 
 def drop_table(table, external=False):
     external = "external" if external else ""
-    _db.execute_non_query_in_transaction("drop {external} table if exists {schema_name}.{table_name}".format(schema_name = _schema, table_name = table, external = external))
+    _db.execute_non_query_in_transaction(
+        "drop {external} table if exists {schema_name}.{table_name}".format(schema_name=_schema, table_name=table,
+                                                                            external=external))
+
 
 def getSQL(columns_def, table, scd, pk, scdDate):
-
     sqlStageFullCreate = "CREATE TABLE #TARGET_SCHEMA.#STAGE_FULL_PREFIX#TABLE_NAME \n ( \n #NATURAL_COLS_WITH_TYPES\n ) "
 
     sqlDWHtableCreate = """CREATE TABLE #TARGET_SCHEMA.h_#TABLE_NAME \n
@@ -224,8 +207,7 @@ def getSQL(columns_def, table, scd, pk, scdDate):
                         )
                         WITH (appendonly=true, orientation=row, compresstype=quicklz)"""
 
-
-    sqlDWHviewCreate =  """CREATE VIEW #TARGET_SCHEMA.#TABLE_NAME AS \n
+    sqlDWHviewCreate = """CREATE VIEW #TARGET_SCHEMA.#TABLE_NAME AS \n
     							SELECT \n
     							#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL\n
     							FROM #TARGET_SCHEMA.h_#TABLE_NAME \n
@@ -261,7 +243,7 @@ def getSQL(columns_def, table, scd, pk, scdDate):
                                 (t.sql_type='UPDATE' AND is_equal LIKE '%N%') \n
                               )"""
 
-    sqlDWHtableInsertSCD=    """INSERT INTO #TARGET_SCHEMA.h_#TABLE_NAME \n
+    sqlDWHtableInsertSCD = """INSERT INTO #TARGET_SCHEMA.h_#TABLE_NAME \n
                                 ( \n
                                 #NATURAL_COLS_WITHOUT_TYPES_WO_QUAL,\n
                                 p_active_flag,\n
@@ -340,7 +322,7 @@ def getSQL(columns_def, table, scd, pk, scdDate):
 
     for pk_part in pk:
         logging.debug("pk_part: " + pk_part)
-        colPK_JOIN_IN_ON_String = colPK_JOIN_IN_ON_Template        
+        colPK_JOIN_IN_ON_String = colPK_JOIN_IN_ON_Template
         colPK_JOIN_IN_ON_String = colPK_JOIN_IN_ON_String.replace("#TABLE", table)
         colPK_JOIN_IN_ON_String = colPK_JOIN_IN_ON_String.replace("#PK_PART", pk_part) + " AND "
         colPK_JOIN_IN_WHERE_String = colPK_JOIN_IN_WHERE_Template
@@ -352,12 +334,12 @@ def getSQL(columns_def, table, scd, pk, scdDate):
 
     logging.debug("strPK_JOIN_IN_ON: " + strPK_JOIN_IN_ON)
     logging.debug("strPK_JOIN_IN_WHERE: " + strPK_JOIN_IN_WHERE)
-    strPK_JOIN_IN_ON = strPK_JOIN_IN_ON[0 : len(strPK_JOIN_IN_ON) - 5]
-    strPK_JOIN_IN_WHERE = strPK_JOIN_IN_WHERE[0 : len(strPK_JOIN_IN_WHERE) - 5]
+    strPK_JOIN_IN_ON = strPK_JOIN_IN_ON[0: len(strPK_JOIN_IN_ON) - 5]
+    strPK_JOIN_IN_WHERE = strPK_JOIN_IN_WHERE[0: len(strPK_JOIN_IN_WHERE) - 5]
     logging.debug("strPK_JOIN_IN_ON: " + strPK_JOIN_IN_ON)
     logging.debug("strPK_JOIN_IN_WHERE: " + strPK_JOIN_IN_WHERE)
 
-    #columns
+    # columns
     strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL = ""
     strNATURAL_COLS_WITHOUT_TYPES_WITH_H = ""
     strNATURAL_COLS_WITHOUT_TYPES_WITH_S = ""
@@ -380,10 +362,16 @@ def getSQL(columns_def, table, scd, pk, scdDate):
             strNATURAL_COLS_WITHOUT_TYPES_WITH_H = strNATURAL_COLS_WITHOUT_TYPES_WITH_H + "  h_" + table + "." + column_name.lower()
             strNATURAL_COLS_WITHOUT_TYPES_WITH_S = strNATURAL_COLS_WITHOUT_TYPES_WITH_S + "  s_" + table + "." + column_name.lower()
             strNATURAL_COLS_WITHOUT_TYPES_WITH_T = strNATURAL_COLS_WITHOUT_TYPES_WITH_T + "  t." + column_name.lower()
-            strNATURAL_COLS_WITH_TYPES = strNATURAL_COLS_WITH_TYPES + "  " + column_name.lower() + " " + get_column_full_type_def(column["type"], column["length"], column["precision"])
+            strNATURAL_COLS_WITH_TYPES = strNATURAL_COLS_WITH_TYPES + "  " + column_name.lower() + " " + get_column_full_type_def(
+                    column["type"], column["length"], column["precision"])
 
-            colSCD_ActPrevListWithoutTypes_String = "  act_#COL, \n  prev_#COL".replace("#TABLE", table).replace("#COL", column_name.lower())
-            colSCD_ActPrevListWithTypes_String = "  act_#COL #DATA_TYPE, \n  prev_#COL #DATA_TYPE".replace("#TABLE", table).replace("#COL", column_name.lower()).replace("#DATA_TYPE",get_column_full_type_def(column["type"], column["length"], column["precision"]))
+            colSCD_ActPrevListWithoutTypes_String = "  act_#COL, \n  prev_#COL".replace("#TABLE", table).replace("#COL",
+                                                                                                                 column_name.lower())
+            colSCD_ActPrevListWithTypes_String = "  act_#COL #DATA_TYPE, \n  prev_#COL #DATA_TYPE".replace("#TABLE",
+                                                                                                           table).replace(
+                "#COL", column_name.lower()).replace("#DATA_TYPE",
+                                                     get_column_full_type_def(column["type"], column["length"],
+                                                                              column["precision"]))
 
             colSCD_SqlType_String = """    CASE \n
                   WHEN h_#TABLE.#COL IS NULL THEN 'INSERT' \n
@@ -404,14 +392,18 @@ def getSQL(columns_def, table, scd, pk, scdDate):
                 colSCD_IsEqual_String = ""
 
             colSCD_ActPrevDef_String = "    s_#TABLE.#COL act_#COL, \n    h_#TABLE.act_#COL prev_#COL"
-            colSCD_ActPrevDef_String = colSCD_ActPrevDef_String.replace("#TABLE", table).replace("#COL", column_name.lower())
+            colSCD_ActPrevDef_String = colSCD_ActPrevDef_String.replace("#TABLE", table).replace("#COL",
+                                                                                                 column_name.lower())
 
             for pk_part in pk:
                 if pk_part.lower() == column_name.lower():
                     strACT_PREV_LIST_WITHOUT_TYPES = strACT_PREV_LIST_WITHOUT_TYPES + "  " + pk_part
-                    strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + "  #COL #DATA_TYPE".replace("#COL", pk_part).replace("#DATA_TYPE",get_column_full_type_def(column["type"], column["length"], column["precision"]))
+                    strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + "  #COL #DATA_TYPE".replace("#COL",
+                                                                                                            pk_part).replace(
+                        "#DATA_TYPE", get_column_full_type_def(column["type"], column["length"], column["precision"]))
                     strSQL_TYPE = colSCD_SqlType_String.replace("#COL", pk_part)
-                    strACT_PREV_DEF = strACT_PREV_DEF + "    s_#TABLE.#COL".replace("#TABLE", table).replace("#COL", pk_part)
+                    strACT_PREV_DEF = strACT_PREV_DEF + "    s_#TABLE.#COL".replace("#TABLE", table).replace("#COL",
+                                                                                                             pk_part)
                 else:
                     strACT_PREV_LIST_WITHOUT_TYPES = strACT_PREV_LIST_WITHOUT_TYPES + colSCD_ActPrevListWithoutTypes_String
                     strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + colSCD_ActPrevListWithTypes_String
@@ -429,22 +421,21 @@ def getSQL(columns_def, table, scd, pk, scdDate):
             strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + ", \n"
 
             if strIS_EQUAL.replace("\n", "").strip().endswith("||") == False:
-                strIS_EQUAL=strIS_EQUAL + " || \n"
+                strIS_EQUAL = strIS_EQUAL + " || \n"
 
-            strACT_PREV_DEF=strACT_PREV_DEF + ", \n"
-
+            strACT_PREV_DEF = strACT_PREV_DEF + ", \n"
 
     strACT_PREV_LIST_WITHOUT_TYPES = strACT_PREV_LIST_WITHOUT_TYPES[2:]
     strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES[2:]
 
     if len(strSQL_TYPE) > 4:
-        strSQL_TYPE=strSQL_TYPE[4:]
+        strSQL_TYPE = strSQL_TYPE[4:]
 
     strIS_EQUAL = strIS_EQUAL[4:] + "'' is_equal"
     strACT_PREV_DEF = strACT_PREV_DEF[4:]
 
     if scd.lower() == "yes":
-        strSTAGE_FULL_PREFIX="s_"
+        strSTAGE_FULL_PREFIX = "s_"
 
     strP_ID_WITHOUT_TYPE = "p_id"
     strP_ID_WITH_TYPE = "p_id serial"
@@ -454,7 +445,7 @@ def getSQL(columns_def, table, scd, pk, scdDate):
     strP_VALID_TO_WITH_TYPE = "p_valid_to timestamp without time zone"
 
     if scdDate is None or len(scdDate) < 0:
-        scdDate =datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        scdDate = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     strSYSDATE_MINUS_ONE_DAY = "('" + scdDate + "'::timestamp -INTERVAL '1' second)::TIMESTAMP"
     strDATE_INFINITE = "'21000101'::DATE::TIMESTAMP"
@@ -468,32 +459,39 @@ def getSQL(columns_def, table, scd, pk, scdDate):
 
     sqlDWHtableCreate = sqlDWHtableCreate.replace("#TARGET_SCHEMA", _schema)
     sqlDWHtableCreate = sqlDWHtableCreate.replace("#TABLE_NAME", table)
-    sqlDWHtableCreate=sqlDWHtableCreate.replace("#NATURAL_COLS_WITH_TYPES",strNATURAL_COLS_WITH_TYPES)
+    sqlDWHtableCreate = sqlDWHtableCreate.replace("#NATURAL_COLS_WITH_TYPES", strNATURAL_COLS_WITH_TYPES)
 
     sqlDWHviewCreate = sqlDWHviewCreate.replace("#TARGET_SCHEMA", _schema)
     sqlDWHviewCreate = sqlDWHviewCreate.replace("#TABLE_NAME", table)
-    sqlDWHviewCreate = sqlDWHviewCreate.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL", strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
+    sqlDWHviewCreate = sqlDWHviewCreate.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL",
+                                                strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
 
     sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#TARGET_SCHEMA", _schema)
     sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#TABLE_NAME", table)
     sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#SQL_TYPE", strSQL_TYPE)
     sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#IS_EQUAL", strIS_EQUAL)
 
-    sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL",strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
-    sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_H",strNATURAL_COLS_WITHOUT_TYPES_WITH_H)
-    sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#PK_JOIN_IN_ON",strPK_JOIN_IN_ON)
-    sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#PK_JOIN_IN_WHERE",strPK_JOIN_IN_WHERE)
-    sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#SYSDATE_MINUS_ONE_DAY",strSYSDATE_MINUS_ONE_DAY)
-    sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#DATE_INFINITE",strDATE_INFINITE)
-    sqlDWHtableUpdateSCD=sqlDWHtableUpdateSCD.replace("#SYSDATE",strSYSDATE)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL",
+                                                        strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_H",
+                                                        strNATURAL_COLS_WITHOUT_TYPES_WITH_H)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#PK_JOIN_IN_ON", strPK_JOIN_IN_ON)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#PK_JOIN_IN_WHERE", strPK_JOIN_IN_WHERE)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#SYSDATE_MINUS_ONE_DAY", strSYSDATE_MINUS_ONE_DAY)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#DATE_INFINITE", strDATE_INFINITE)
+    sqlDWHtableUpdateSCD = sqlDWHtableUpdateSCD.replace("#SYSDATE", strSYSDATE)
 
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#TARGET_SCHEMA", _schema)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#TABLE_NAME", table)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#TARGET_SCHEMA", _schema)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#TABLE_NAME", table)
 
-    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL", strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
-    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_H", strNATURAL_COLS_WITHOUT_TYPES_WITH_H)
-    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_S", strNATURAL_COLS_WITHOUT_TYPES_WITH_S)
-    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_T", strNATURAL_COLS_WITHOUT_TYPES_WITH_T)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WO_QUAL",
+                                                        strNATURAL_COLS_WITHOUT_TYPES_WO_QUAL)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_H",
+                                                        strNATURAL_COLS_WITHOUT_TYPES_WITH_H)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_S",
+                                                        strNATURAL_COLS_WITHOUT_TYPES_WITH_S)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#NATURAL_COLS_WITHOUT_TYPES_WITH_T",
+                                                        strNATURAL_COLS_WITHOUT_TYPES_WITH_T)
 
     forReplace = ""
     if "created_at" in sqlDWHtableInsertSCD:
@@ -502,12 +500,12 @@ def getSQL(columns_def, table, scd, pk, scdDate):
         forReplace = "  CASE WHEN t.sql_type='INSERT' THEN '10010101'::date::timestamp ELSE #SYSDATE END p_valid_from"
 
     sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#P_VALID_FROM_CREDATE", forReplace)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#SQL_TYPE",strSQL_TYPE)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#IS_EQUAL",strIS_EQUAL)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#PK_JOIN_IN_ON",strPK_JOIN_IN_ON)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#SYSDATE_MINUS_ONE_DAY",strSYSDATE_MINUS_ONE_DAY)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#DATE_INFINITE",strDATE_INFINITE)
-    sqlDWHtableInsertSCD=sqlDWHtableInsertSCD.replace("#SYSDATE",strSYSDATE)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#SQL_TYPE", strSQL_TYPE)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#IS_EQUAL", strIS_EQUAL)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#PK_JOIN_IN_ON", strPK_JOIN_IN_ON)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#SYSDATE_MINUS_ONE_DAY", strSYSDATE_MINUS_ONE_DAY)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#DATE_INFINITE", strDATE_INFINITE)
+    sqlDWHtableInsertSCD = sqlDWHtableInsertSCD.replace("#SYSDATE", strSYSDATE)
 
     map = {}
     map['StageFullCreate'] = sqlStageFullCreate
@@ -523,11 +521,13 @@ def getSQL(columns_def, table, scd, pk, scdDate):
     logging.debug("DWHtableInsertSCD - " + sqlDWHtableInsertSCD)
     return map
 
-def manage_partitions(table):
 
+def manage_partitions(table):
     if table in ("threadinfo", "serverlogs", "plainlogs"):
-        query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name = _schema, table_name = table)
+        query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name=_schema,
+                                                                                                   table_name=table)
         _db.execute_in_transaction(query)
+
 
 def get_insert_data_from_external_table_query(metadata, src_table, trg_table):
     query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
@@ -540,52 +540,48 @@ def get_insert_data_from_external_table_query(metadata, src_table, trg_table):
     query = query.format(schema_name=_schema, src_table_name=src_table, trg_table_name=trg_table)
     return query
 
-def insert_data_from_external_table(metadata, src_table, trg_table):
 
+def insert_data_from_external_table(metadata, src_table, trg_table):
     logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
     sql = get_insert_data_from_external_table_query(metadata, src_table, trg_table)
     result = _db.execute_non_query_in_transaction(sql)
-    logging.info("End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
+    logging.info(
+        "End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
+
 
 def apply_scd(metadata_for_table, table, scd_date, pk):
-
     logging.info("Start applying SCD. Table = {}, SCD Date: {}".format(table, scd_date))
     sql_queries_map = getSQL(metadata_for_table, table, "yes", pk, scd_date)
 
     queries_in_transaction = [sql_queries_map["DWHtableUpdateSCD"], sql_queries_map["DWHtableInsertSCD"]]
     upd_ins_rowcount = _db.execute_non_query_in_transaction(queries_in_transaction)
-    logging.info("End applying SCD. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[0], upd_ins_rowcount[1]))
+    logging.info("End applying SCD. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[0],
+                                                                                    upd_ins_rowcount[1]))
+
 
 def load_data_from_external_table(metadata_for_table, table):
-    query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name = _schema, table_name = table)
+    query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name=_schema, table_name=table)
     _db.execute_non_query_in_transaction(query)
     src_table = "ext_" + table
     trg_table = "s_" + table
     insert_data_from_external_table(metadata_for_table, src_table, trg_table)
 
-def create_external_table_if_needed(table, metadata_for_table, gpfdist_addr, incremental):
 
+def recreate_external_table(table, metadata_for_table, gpfdist_addr, incremental):
     ext_table = "ext_" + table
     ext_table_create_sql = get_create_external_table_query(metadata_for_table, table)
-    ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE","gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(gpfdist_addr=gpfdist_addr, table_name=table))
+    ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE",
+                                                        "gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(
+                                                            gpfdist_addr=gpfdist_addr, table_name=table))
 
-    ext_table_exists = table_exists(ext_table)
-    if not ext_table_exists:
-        _db.execute_non_query_in_transaction(ext_table_create_sql)
-        logging.info("External table created: {table_name}".format(table_name = ext_table))
+    drop_table(ext_table, external=True)
+    _db.execute_non_query_in_transaction(ext_table_create_sql)
+    logging.info("External table recreated: {table_name}".format(table_name=ext_table))
 
-    # Check if structure has modifed
-    alter_list = gen_alter_cols_because_of_metadata_change(table, metadata_for_table, incremental)
-    gpfdist_addr_modified = ext_table_gpfdist_addr_modified(ext_table, gpfdist_addr)
-
-    if alter_list != [] or gpfdist_addr_modified:
-        drop_table(ext_table, external=True)
-        _db.execute_non_query_in_transaction(ext_table_create_sql)
-        logging.info("External table recreated: {table_name}".format(table_name=ext_table))
-    return alter_list
 
 def alter_dwh_table_if_needed(alter_list):
     _db.execute_non_query_in_transaction(alter_list)
+
 
 def create_dwh_full_tables_if_needed(table, sql_queries_map):
     if not table_exists("h_" + table):
@@ -593,6 +589,7 @@ def create_dwh_full_tables_if_needed(table, sql_queries_map):
         _db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
         return True
     return False
+
 
 def create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
     # TODO Check if metadata exists for table. Raise execption
