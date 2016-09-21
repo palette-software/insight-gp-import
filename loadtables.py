@@ -22,7 +22,7 @@ class PaletteMultipartSCD(Exception):
 # TODO roadsByLength = sorted(roads, key=lambda x: x['length'], reverse=False)
 def list_files_from_folder(folder_name, filename_pattern, sort_order):
     sorted_file_list = []
-    for root, dirs, files in os.walk("./" + folder_name):
+    for root, dirs, files in os.walk(folder_name):
         for file in files:
             if re.match(filename_pattern + "-.*csv.gz", file) is not None:
                 sorted_file_list.append(file)
@@ -36,11 +36,12 @@ def list_files_from_folder(folder_name, filename_pattern, sort_order):
     return sorted_file_list
 
 #TODO rewrite after list_files_from_folder rewrite
-def get_latest_metadata_file():
-    metadata_files = list_files_from_folder("uploads", "metadata", "desc")
+def get_latest_metadata_file(storage_path):
+    uploads_path = os.path.join(storage_path, 'uploads')
+    metadata_files = list_files_from_folder(uploads_path, "metadata", "desc")
 
     # Get The full path for the latest metadata
-    for root, dirs, files in os.walk("./uploads"):
+    for root, dirs, files in os.walk(uploads_path):
         for file in files:
             if file == metadata_files[0]:
                 return os.path.join(root, file)
@@ -273,7 +274,9 @@ def main():
 
     try:
         config_filename = sys.argv[1]
+        storage_path = sys.argv[2]
         config = load_config(config_filename)
+        config['storage_path'] = storage_path
 
         setup_logging(config['Logfilename'], config['ConsoleLog'], config['LogLevel'])
 
