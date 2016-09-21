@@ -157,7 +157,7 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
             if re.match(table + ". + part0000.+csv\.gz", file) is None:
                 raise PaletteMultipartSCD("MultiPart SCD table, STOPPING! File = {}".format(file))
 
-def processing_retry_folder(table, metadata_for_table):
+def processing_retry_folder(storage_path, table, metadata_for_table):
     file_list = list_files_from_folder("retry", table, "asc")
     if len(file_list) == 0:
         return
@@ -166,15 +166,15 @@ def processing_retry_folder(table, metadata_for_table):
     for file in file_list:
         try:
             logging.info("Start processing file: {}".format(file))
-            move_files_between_folders("retry", "processing", file, True)
+            move_files_between_folders(storage_path, "retry", "processing", file, True)
             sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
-            move_files_between_folders("processing", "archive", table)
+            move_files_between_folders(storage_path, "processing", "archive", table)
             logging.info("End processing file: {}".format(file))
         except Exception as e:
             logging.error(
                 "Incremental Load RETRY failed: {}. File moved to retried folder and will not be processed further. Exception: {}".format(
                     file, e))
-            move_files_between_folders("processing", "retried", file, True)
+            move_files_between_folders(storage_path, "processing", "retried", file, True)
 
     logging.info("End processing retry folder for table: {}".format(table))
 
@@ -182,6 +182,7 @@ def processing_retry_folder(table, metadata_for_table):
 def handle_incremental_tables(config, metadata):
     logging.info("Start loading incremental tables.")
 
+    data_path = config["storage_path"]
     for table in config["Tables"]["Incremental"]:
         try:
 
@@ -189,21 +190,21 @@ def handle_incremental_tables(config, metadata):
 
             metadata_for_table = metadata[table]
             sql_routines.manage_partitions(table)
-            processing_retry_folder(table, metadata_for_table)
+            processing_retry_folder(config["storage_path", table, metadata_for_table)
             if sql_routines.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
                 logging.info("Table created: {}".format(table))
                 continue
 
             adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table)
-            move_files_between_folders("uploads", "processing", table)
+            move_files_between_folders(data_path, "uploads", "processing", table)
             sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
-            move_files_between_folders("processing", "archive", table)
+            move_files_between_folders(data_path, "processing", "archive", table)
 
             logging.info("End processing table: {}".format(table))
 
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
-            move_files_between_folders("processing", "retry", table)
+            move_files_between_folders(data_path, "processing", "retry", table)
 
     logging.info("End loading incremental tables.")
 
@@ -212,6 +213,7 @@ def handle_full_tables(config, metadata):
     logging.info("Start loading full tables.")
 
     schema = config["Schema"]
+    data_path = config["storage_path"]
 
     for item in config["Tables"]["Full"]:
 
@@ -230,22 +232,22 @@ def handle_full_tables(config, metadata):
             adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_for_table, table)
 
             # in case some files were stuck here from prev. run
-            move_files_between_folders("processing", "retry", table)
+            move_files_between_folders(data_path, "processing", "retry", table)
 
             # we have to deal with "full table" files one by one in ascending order
             file_list = list_files_from_folder("uploads", table, "asc")
             for file in file_list:
                 try:
-                    move_files_between_folders("uploads", "processing", file, True)
+                    move_files_between_folders(data_path, "uploads", "processing", file, True)
                     sql_routines.load_data_from_external_table(metadata_for_table, table)
                     scd_date = parse_datetime(file)
                     sql_routines.apply_scd(metadata_for_table, table, scd_date, item["pk"])
-                    move_files_between_folders("processing", "archive", table)
+                    move_files_between_folders(data_path, "processing", "archive", table)
                 except Exception as e:
                     logging.error(
                         "SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(
                             file, e))
-                    move_files_between_folders("processing", "retry", file, True)
+                    move_files_between_folders(data_path, "processing", "retry", file, True)
             logging.info("End processing table: {}".format(table))
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
