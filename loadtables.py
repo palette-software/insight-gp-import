@@ -190,7 +190,7 @@ def handle_incremental_tables(config, metadata):
 
             metadata_for_table = metadata[table]
             sql_routines.manage_partitions(table)
-            processing_retry_folder(config["storage_path", table, metadata_for_table)
+            processing_retry_folder(config["storage_path"], table, metadata_for_table)
             if sql_routines.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
                 logging.info("Table created: {}".format(table))
                 continue
