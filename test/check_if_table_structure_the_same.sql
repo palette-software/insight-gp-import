@@ -386,6 +386,64 @@ LANGUAGE plpgsql VOLATILE SECURITY INVOKER;
 
 
 
+----- after the first loadtables, run this
+
+-- Recreate agent tables
+alter table threadinfo rename to threadinfo_old;
+
+CREATE TABLE threadinfo
+(LIKE threadinfo_old INCLUDING DEFAULTS)
+WITH (APPENDONLY=TRUE, ORIENTATION=COLUMN, COMPRESSTYPE=QUICKLZ)
+DISTRIBUTED BY (p_id)
+PARTITION BY RANGE (ts)
+SUBPARTITION BY LIST (host_name)
+SUBPARTITION TEMPLATE (SUBPARTITION init VALUES ('init')
+WITH (appendonly=true, orientation=column, compresstype=quicklz))
+(PARTITION "10010101" START (date '1001-01-01') INCLUSIVE
+        END (date '1001-01-02') EXCLUSIVE
+WITH (appendonly=true, orientation=column, compresstype=quicklz)
+);
+
+alter sequence threadinfo_p_id_seq owned by threadinfo.p_id;
+drop table threadinfo_old;
+
+
+alter table serverlogs rename to serverlogs_old;
+
+CREATE TABLE serverlogs
+(LIKE serverlogs_old INCLUDING DEFAULTS)
+WITH (APPENDONLY=TRUE, ORIENTATION=COLUMN, COMPRESSTYPE=QUICKLZ)
+DISTRIBUTED BY (p_id)
+PARTITION BY RANGE (ts)
+SUBPARTITION BY LIST (host_name)
+SUBPARTITION TEMPLATE (SUBPARTITION init VALUES ('init')
+WITH (appendonly=true, orientation=column, compresstype=quicklz))
+(PARTITION "10010101" START (date '1001-01-01') INCLUSIVE
+        END (date '1001-01-02') EXCLUSIVE
+WITH (appendonly=true, orientation=column, compresstype=quicklz)
+);
+
+alter sequence serverlogs_p_id_seq owned by serverlogs.p_id;
+drop table serverlogs_old;
+
+
+alter table plainlogs rename to plainlogs_old;
+
+CREATE TABLE plainlogs (LIKE plainlogs_old INCLUDING DEFAULTS)
+WITH (APPENDONLY=TRUE, ORIENTATION=COLUMN, COMPRESSTYPE=QUICKLZ)
+DISTRIBUTED BY (p_id)
+PARTITION BY RANGE (ts)
+(PARTITION "10010101"
+    START (date '1001-01-01') INCLUSIVE
+        END (date '1001-01-02') EXCLUSIVE
+WITH (appendonly=true, orientation=column, compresstype=quicklz)
+);
+
+alter sequence plainlogs_p_id_seq owned by plainlogs.p_id;
+drop table plainlogs_old;
+
+
+
 
 
 
