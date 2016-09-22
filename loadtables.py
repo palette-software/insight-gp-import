@@ -12,12 +12,14 @@ import shutil
 FATAL_ERROR = 49
 VERTICAL_TAB = "\013"
 
+
 class PaletteFileParseError(Exception):
     pass
 
 
 class PaletteMultipartSCD(Exception):
     pass
+
 
 # TODO roadsByLength = sorted(roads, key=lambda x: x['length'], reverse=False)
 def list_files_from_folder(folder_name, filename_pattern, sort_order):
@@ -35,7 +37,8 @@ def list_files_from_folder(folder_name, filename_pattern, sort_order):
 
     return sorted_file_list
 
-#TODO rewrite after list_files_from_folder rewrite
+
+# TODO rewrite after list_files_from_folder rewrite
 def get_latest_metadata_file(storage_path):
     uploads_path = os.path.join(storage_path, 'uploads')
     metadata_files = list_files_from_folder(uploads_path, "metadata", "desc")
@@ -91,6 +94,7 @@ def parsed_line_to_metadata_dict(line):
     coldef["precision"] = 0
 
     return coldef
+
 
 # TODO consider to use python csv loader
 def read_metadata(filename):
@@ -157,6 +161,7 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
             if re.match(table + ". + part0000.+csv\.gz", file) is None:
                 raise PaletteMultipartSCD("MultiPart SCD table, STOPPING! File = {}".format(file))
 
+
 def processing_retry_folder(storage_path, table, metadata_for_table):
     file_list = list_files_from_folder("retry", table, "asc")
     if len(file_list) == 0:
@@ -172,8 +177,8 @@ def processing_retry_folder(storage_path, table, metadata_for_table):
             logging.info("End processing file: {}".format(file))
         except Exception as e:
             logging.error(
-                "Incremental Load RETRY failed: {}. File moved to retried folder and will not be processed further. Exception: {}".format(
-                    file, e))
+                    "Incremental Load RETRY failed: {}. File moved to retried folder and will not be processed further. Exception: {}".format(
+                            file, e))
             move_files_between_folders(storage_path, "processing", "retried", file, True)
 
     logging.info("End processing retry folder for table: {}".format(table))
@@ -245,8 +250,8 @@ def handle_full_tables(config, metadata):
                     move_files_between_folders(data_path, "processing", "archive", table)
                 except Exception as e:
                     logging.error(
-                        "SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(
-                            file, e))
+                            "SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(
+                                    file, e))
                     move_files_between_folders(data_path, "processing", "retry", file, True)
             logging.info("End processing table: {}".format(table))
         except Exception as e:
@@ -264,7 +269,7 @@ def adjust_table_to_metadata(gpfdist_addr, incremental, metadata_for_table, tabl
 
 
 TYPE_CONVERSION_MAP = {
-    #There is no uuid type in Postgres 8.2 (Greenplum)
+    # There is no uuid type in Postgres 8.2 (Greenplum)
     'uuid': 'character varying (166)'
 }
 

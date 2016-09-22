@@ -190,8 +190,8 @@ def add_2_cols_to_coldef(coldef, table):
 def drop_table(table, external=False):
     external = "external" if external else ""
     _db.execute_non_query_in_transaction(
-        "drop {external} table if exists {schema_name}.{table_name}".format(schema_name=_schema, table_name=table,
-                                                                            external=external))
+            "drop {external} table if exists {schema_name}.{table_name}".format(schema_name=_schema, table_name=table,
+                                                                                external=external))
 
 
 def getSQL(columns_def, table, scd, pk, scdDate):
@@ -369,9 +369,9 @@ def getSQL(columns_def, table, scd, pk, scdDate):
                                                                                                                  column_name.lower())
             colSCD_ActPrevListWithTypes_String = "  act_#COL #DATA_TYPE, \n  prev_#COL #DATA_TYPE".replace("#TABLE",
                                                                                                            table).replace(
-                "#COL", column_name.lower()).replace("#DATA_TYPE",
-                                                     get_column_full_type_def(column["type"], column["length"],
-                                                                              column["precision"]))
+                    "#COL", column_name.lower()).replace("#DATA_TYPE",
+                                                         get_column_full_type_def(column["type"], column["length"],
+                                                                                  column["precision"]))
 
             colSCD_SqlType_String = """    CASE \n
                   WHEN h_#TABLE.#COL IS NULL THEN 'INSERT' \n
@@ -400,7 +400,8 @@ def getSQL(columns_def, table, scd, pk, scdDate):
                     strACT_PREV_LIST_WITHOUT_TYPES = strACT_PREV_LIST_WITHOUT_TYPES + "  " + pk_part
                     strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + "  #COL #DATA_TYPE".replace("#COL",
                                                                                                             pk_part).replace(
-                        "#DATA_TYPE", get_column_full_type_def(column["type"], column["length"], column["precision"]))
+                            "#DATA_TYPE",
+                            get_column_full_type_def(column["type"], column["length"], column["precision"]))
                     strSQL_TYPE = colSCD_SqlType_String.replace("#COL", pk_part)
                     strACT_PREV_DEF = strACT_PREV_DEF + "    s_#TABLE.#COL".replace("#TABLE", table).replace("#COL",
                                                                                                              pk_part)
@@ -546,7 +547,8 @@ def insert_data_from_external_table(metadata, src_table, trg_table):
     sql = get_insert_data_from_external_table_query(metadata, src_table, trg_table)
     result = _db.execute_non_query_in_transaction(sql)
     logging.info(
-        "End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
+            "End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table,
+                                                                                            result))
 
 
 def apply_scd(metadata_for_table, table, scd_date, pk):
@@ -572,7 +574,7 @@ def recreate_external_table(table, metadata_for_table, gpfdist_addr, incremental
     ext_table_create_sql = get_create_external_table_query(metadata_for_table, table)
     ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE",
                                                         "gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(
-                                                            gpfdist_addr=gpfdist_addr, table_name=table))
+                                                                gpfdist_addr=gpfdist_addr, table_name=table))
 
     drop_table(ext_table, external=True)
     _db.execute_non_query_in_transaction(ext_table_create_sql)
