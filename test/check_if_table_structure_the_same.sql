@@ -384,6 +384,34 @@ $BODY$
 LANGUAGE plpgsql VOLATILE SECURITY INVOKER;
 
 
+-- not needed for the first loadtable run, but this is a function too
+CREATE OR REPLACE FUNCTION py_load_tables_test.does_part_exist(p_schema_name text, p_table_name text, p_part_name text)
+RETURNS boolean AS
+$BODY$
+declare
+	v_cnt int;
+BEGIN
+
+	v_cnt := 0;
+	select count(1) into v_cnt
+	from 
+		pg_partitions 
+	where 
+		schemaname = p_schema_name and
+		tablename = p_table_name and 
+		partitionname = p_part_name;
+		
+	if v_cnt > 0 then
+		return true;
+	else
+		return false;
+	end if;
+	
+END;
+$BODY$
+LANGUAGE plpgsql VOLATILE SECURITY INVOKER;
+
+
 
 
 ----- after the first loadtables, run this
@@ -441,7 +469,6 @@ WITH (appendonly=true, orientation=column, compresstype=quicklz)
 
 alter sequence plainlogs_p_id_seq owned by plainlogs.p_id;
 drop table plainlogs_old;
-
 
 
 
