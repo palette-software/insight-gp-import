@@ -310,6 +310,9 @@ def main():
         logging.log(FATAL_ERROR, 'Unhandled exception occurred: {}'.format(exception))
         raise
 
+    finally:
+        db.close_connection()
+
 
 if __name__ == '__main__':
     main()

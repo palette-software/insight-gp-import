@@ -55,7 +55,7 @@ class Database(object):
     def __has_no_records(self, cursor):
         return cursor.rowcount < 1 or cursor.statusmessage.startswith('DELETE')
 
-    def __del__(self):
+    def close_connection(self):
         self.connection.close()
         logging.debug("Database connection is closed")
 
