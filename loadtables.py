@@ -22,9 +22,9 @@ class PaletteMultipartSCD(Exception):
 
 
 # TODO roadsByLength = sorted(roads, key=lambda x: x['length'], reverse=False)
-def list_files_from_folder(folder_name, filename_pattern, sort_order):
+def list_files_from_folder(folder_path, filename_pattern, sort_order):
     sorted_file_list = []
-    for root, dirs, files in os.walk(folder_name):
+    for root, dirs, files in os.walk(folder_path):
         for file in files:
             if re.match(filename_pattern + "-.*csv.gz", file) is not None:
                 sorted_file_list.append(file)
@@ -163,7 +163,8 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
 
 
 def processing_retry_folder(storage_path, table, metadata_for_table):
-    file_list = list_files_from_folder("retry", table, "asc")
+    retry_path = os.path.join(storage_path, "retry")
+    file_list = list_files_from_folder(retry_path, table, "asc")
     if len(file_list) == 0:
         return
 
@@ -194,7 +195,7 @@ def handle_incremental_tables(config, metadata):
             logging.info("Start processing table: {}".format(table))
 
             metadata_for_table = metadata[table]
-            processing_retry_folder(config["storage_path"], table, metadata_for_table)
+            processing_retry_folder(data_path, table, metadata_for_table)
             if sql_routines.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
                 logging.info("Table created: {}".format(table))
                 continue
@@ -240,7 +241,8 @@ def handle_full_tables(config, metadata):
             move_files_between_folders(data_path, "processing", "retry", table)
 
             # we have to deal with "full table" files one by one in ascending order
-            file_list = list_files_from_folder("uploads", table, "asc")
+            upload_path = os.path.join(config['storage_path'], "uploads")
+            file_list = list_files_from_folder(upload_path, table, "asc")
             for file in file_list:
                 try:
                     move_files_between_folders(data_path, "uploads", "processing", file, True)
