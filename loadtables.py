@@ -11,7 +11,7 @@ import shutil
 
 FATAL_ERROR = 49
 VERTICAL_TAB = "\013"
-
+METADATA_INSTALL_PATH = os.path.join("_install", "metadata-install.csv.gz")
 
 class PaletteFileParseError(Exception):
     pass
@@ -41,16 +41,16 @@ def list_files_from_folder(folder_path, filename_pattern, sort_order):
 # TODO rewrite after list_files_from_folder rewrite
 def get_latest_metadata_file(storage_path):
     uploads_path = os.path.join(storage_path, 'uploads')
-    metadata_files = list_files_from_folder(uploads_path, "metadata", "desc")
+    metadata_files = list_files_from_folder(uploads_path, "metadata-\d\d\d\d-\d\d-\d\d", "desc")
 
-    # Get The full path for the latest metadata
-    for root, dirs, files in os.walk(uploads_path):
-        for file in files:
-            if file == metadata_files[0]:
-                return os.path.join(root, file)
+    if len(metadata_files) > 0:
+        # Get The full path for the latest metadata
+        for root, dirs, files in os.walk(uploads_path):
+            for file in files:
+                if file == metadata_files[0]:
+                    return os.path.join(root, file)
 
-    return None
-
+    return os.path.join(uploads_path, METADATA_INSTALL_PATH)
 
 def load_config(filename):
     with open(filename) as config_file:
