@@ -4,7 +4,7 @@ Port: 5432
 User: palette_etl_user
 Password: palette123
 Database: palette
-Schema: palette
+Schema: py_load_tables_test
 gpfdist_addr: localhost:18010
 #Logfilename: /var/log/insight-gp-import/loadtables.log
 Logfilename: loadtables.log
