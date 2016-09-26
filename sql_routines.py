@@ -35,7 +35,8 @@ def get_table_columns_def_from_db(table):
 def gen_alter_cols_because_of_metadata_change(table, columns_def, incremental=True):
     # TODO type also should be checked
     sql_alter_stmts = []
-    cols_def_from_db = get_table_columns_def_from_db('ext_' + table)
+    table_prefix = "h_" if not incremental else ""
+    cols_def_from_db = get_table_columns_def_from_db(table_prefix + table)
 
     only_col_names = [cd[2] for cd in cols_def_from_db]
 
