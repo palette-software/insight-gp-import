@@ -117,9 +117,13 @@ def read_metadata(filename):
 
 
 def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, full_match=False):
-    # TODO only copy 6000 files at a time if load_type = incremental load
+
+    def is_limit_reached(limit):
+        return limit >= 6000
+
     from_path = os.path.join(storage_path, f_from)
     file_move_cnt = 0
+
     if not full_match:
         filename_pattern += "-"
     for root, dirs, files in os.walk(from_path):
@@ -131,6 +135,13 @@ def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, ful
                 os.makedirs(os.path.dirname(trg), exist_ok=True)
                 shutil.move(src, trg)
                 file_move_cnt += 1
+
+            # For the inner loop
+            if is_limit_reached(file_move_cnt):
+                break
+        # For the outer loop
+        if is_limit_reached(file_move_cnt):
+            break
 
     logging.debug("{} {} file(s) moved from {} to {}".format(file_move_cnt, filename_pattern, f_from, f_to))
     return file_move_cnt
