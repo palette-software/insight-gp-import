@@ -472,6 +472,8 @@ drop table plainlogs_old;
 
 
 
+------------------
+-----------
 
 
 
@@ -482,7 +484,8 @@ CREATE OR REPLACE FUNCTION py_load_tables_test.get_struct_diff_for_table(p_table
 setof record AS $$
 declare
 
-    c cursor is        
+    c cursor is     
+    
 with t_new as (
     select *
     from 
@@ -490,7 +493,7 @@ with t_new as (
     where  
         c.table_name = p_tablename and
         c.table_schema = p_schema_a
-    order by table_schema, ordinal_position),
+    order by table_schema, column_name),
 t_orig as (
     select *
     from 
@@ -498,7 +501,7 @@ t_orig as (
     where  
         c.table_name = p_tablename and
         c.table_schema = p_schema_b
-    order by table_schema, ordinal_position)
+    order by table_schema, column_name)
     
  select 
  		table_name::character varying,
@@ -516,7 +519,7 @@ from (
     select 
 		t_orig.table_name,
 		t_new.table_name as ntable_name,
-        t_orig.column_name,
+        coalesce(t_orig.column_name, t_new.column_name) as column_name,
         case when t_orig.data_type = t_new.data_type then null else coalesce(t_orig.data_type, '') || ',' || coalesce(t_new.data_type, '') end as data_type,
         case when t_orig.ordinal_position = t_new.ordinal_position then null else coalesce(t_orig.ordinal_position::text, '') || ',' || coalesce(t_new.ordinal_position::text, '') end as ordinal_position ,
         case when t_orig.column_default = t_new.column_default then null else coalesce(t_orig.column_default, '') || ',' || coalesce(t_new.column_default, '') end as column_default ,
@@ -526,7 +529,7 @@ from (
         case when t_orig.numeric_scale = t_new.numeric_scale then null else coalesce(t_orig.numeric_scale::text, '') || ',' || coalesce(t_new.numeric_scale::text, '') end as numeric_scale ,
         decode(t_orig.column_name, t_new.column_name, 0, 1) +
             decode(t_orig.data_type, t_new.data_type, 0, 1) +
-            decode(t_orig.ordinal_position, t_new.ordinal_position, 0, 1) +        
+            --decode(t_orig.ordinal_position, t_new.ordinal_position, 0, 1) +        
             decode(t_orig.column_default, t_new.column_default, 0, 1) + 
             decode(t_orig.is_nullable, t_new.is_nullable, 0, 1) + 
             decode(t_orig.character_maximum_length, t_new.character_maximum_length, 0, 1) + 
