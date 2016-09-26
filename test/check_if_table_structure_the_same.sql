@@ -1,4 +1,3 @@
-
 -- With superuser: 
 -- set search_path = 'palette'; set role = palette;
 drop schema py_load_tables_test cascade;
@@ -479,59 +478,126 @@ drop table plainlogs_old;
 
 
 
+CREATE OR REPLACE FUNCTION py_load_tables_test.get_struct_diff_for_table(p_tablename text, p_schema_a text, p_schema_b text) RETURNS
+setof record AS $$
+declare
 
-
-
-
-
-
-
+    c cursor is        
 with t_new as (
-select *
-from 
-    information_schema.columns c
-where  
-    c.table_name = 'threadinfo' and
-    c.table_schema = 'py_load_tables_test'
-order by table_schema, ordinal_position
-) ,
+    select *
+    from 
+        information_schema.columns c
+    where  
+        c.table_name = p_tablename and
+        c.table_schema = p_schema_a
+    order by table_schema, ordinal_position),
 t_orig as (
-select *
-from 
-    information_schema.columns c
-where  
-    c.table_name = 'threadinfo' and
-    c.table_schema = 'palette'
-order by table_schema, ordinal_position
-)
-
-select 
-       t_orig.column_name, 
-       t_new.column_name,
-       t_orig.data_type, 
-       t_new.data_type,
-       t_orig.ordinal_position, 
-       t_new.ordinal_position,
-       t_orig.column_default,
-       t_new.column_default,
-       t_orig.is_nullable,
-       t_new.is_nullable,
-       t_orig.character_maximum_length,
-       t_new.character_maximum_length,
-       t_orig.numeric_precision,
-       t_new.numeric_precision,
-       t_orig.numeric_scale,
-       t_new.numeric_scale
-from
-    t_orig 
-    full outer join t_new on (t_orig.column_name = t_new.column_name)
+    select *
+    from 
+        information_schema.columns c
+    where  
+        c.table_name = p_tablename and
+        c.table_schema = p_schema_b
+    order by table_schema, ordinal_position)
+    
+ select 
+ 		table_name::character varying,
+		ntable_name::character varying,
+        column_name::character varying,
+        data_type::character varying ,
+        ordinal_position::character varying,
+        column_default::character varying,
+        is_nullable::character varying, 
+        character_maximum_length::character varying,
+        numeric_precision::character varying,
+        numeric_scale::character varying,
+        diffcount::character varying
+from (
+    select 
+		t_orig.table_name,
+		t_new.table_name as ntable_name,
+        t_orig.column_name,
+        case when t_orig.data_type = t_new.data_type then null else coalesce(t_orig.data_type, '') || ',' || coalesce(t_new.data_type, '') end as data_type,
+        case when t_orig.ordinal_position = t_new.ordinal_position then null else coalesce(t_orig.ordinal_position::text, '') || ',' || coalesce(t_new.ordinal_position::text, '') end as ordinal_position ,
+        case when t_orig.column_default = t_new.column_default then null else coalesce(t_orig.column_default, '') || ',' || coalesce(t_new.column_default, '') end as column_default ,
+        case when t_orig.is_nullable = t_new.is_nullable then null else coalesce(t_orig.is_nullable, '') || ',' || coalesce(t_new.is_nullable, '') end as is_nullable ,
+        case when t_orig.character_maximum_length = t_new.character_maximum_length then null else coalesce(t_orig.character_maximum_length::text, '') || ',' || coalesce(t_new.character_maximum_length::text, '') end as character_maximum_length ,
+        case when t_orig.numeric_precision = t_new.numeric_precision then null else coalesce(t_orig.numeric_precision::text, '') || ',' || coalesce(t_new.numeric_precision::text, '') end as numeric_precision ,
+        case when t_orig.numeric_scale = t_new.numeric_scale then null else coalesce(t_orig.numeric_scale::text, '') || ',' || coalesce(t_new.numeric_scale::text, '') end as numeric_scale ,
+        decode(t_orig.column_name, t_new.column_name, 0, 1) +
+            decode(t_orig.data_type, t_new.data_type, 0, 1) +
+            decode(t_orig.ordinal_position, t_new.ordinal_position, 0, 1) +        
+            decode(t_orig.column_default, t_new.column_default, 0, 1) + 
+            decode(t_orig.is_nullable, t_new.is_nullable, 0, 1) + 
+            decode(t_orig.character_maximum_length, t_new.character_maximum_length, 0, 1) + 
+            decode(t_orig.numeric_precision, t_new.numeric_precision, 0, 1) + 
+            decode(t_orig.numeric_scale, t_new.numeric_scale, 0, 1) as diffcount
+    from
+        t_orig 
+        full outer join t_new on (t_orig.column_name = t_new.column_name) ) diff
 where
-       decode(t_orig.column_name, t_new.column_name, 0, 1) +
-       decode(t_orig.data_type, t_new.data_type, 0, 1) +
-       decode(t_orig.ordinal_position, t_new.ordinal_position, 0, 1) +        
-       decode(t_orig.column_default, t_new.column_default, 0, 1) + 
-       decode(t_orig.is_nullable, t_new.is_nullable, 0, 1) + 
-       decode(t_orig.character_maximum_length, t_new.character_maximum_length, 0, 1) + 
-       decode(t_orig.numeric_precision, t_new.numeric_precision, 0, 1) + 
-       decode(t_orig.numeric_scale, t_new.numeric_scale, 0, 1) > 0
+       diff.diffcount > 0
        
+            ;
+
+    r_return record;    
+begin
+ 
+ 
+ open c;
+ loop
+  fetch c into r_return;
+  exit when not found;
+  --raise notice 'I: %', v_i;
+  return next r_return;
+ end loop;
+ close c;
+ return;
+end;
+$$ LANGUAGE plpgsql;
+
+
+
+
+
+
+select *
+from
+    py_load_tables_test.get_struct_diff_for_table('p_threadinfo', 'palette', 'py_load_tables_test') a
+        (
+		table_name character varying, 
+		ntable_name character varying, 
+        column_name character varying, 
+        data_type character varying ,
+        ordinal_position character varying,
+        column_default character varying,
+        is_nullable character varying, 
+        character_maximum_length character varying,
+        numeric_precision character varying,
+        numeric_scale character varying,
+        diffcount character varying
+        )
+;
+
+select 'select * from py_load_tables_test.get_struct_diff_for_table(''' ||  tablename || ''', ''palette'', ''py_load_tables_test'') a
+        (
+        table_name character varying, 
+        ntable_name character varying, 
+        column_name character varying, 
+        data_type character varying ,
+        ordinal_position character varying,
+        column_default character varying,
+        is_nullable character varying, 
+        character_maximum_length character varying,
+        numeric_precision character varying,
+        numeric_scale character varying,
+        diffcount character varying
+        ) union all'
+from
+    pg_tables
+where
+  schemaname = 'py_load_tables_test' and
+  tablename not like '%prt%' and
+  tablename not like 'ext_%' 
+  ;
+  
