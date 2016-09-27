@@ -203,7 +203,7 @@ def handle_incremental_tables(config, metadata):
     for table in config["Tables"]["Incremental"]:
         try:
 
-            logging.info("Start processing table: {}".format(table))
+            logging.debug("Start processing table: {}".format(table))
 
             metadata_for_table = metadata[table]
             processing_retry_folder(data_path, table, metadata_for_table)
@@ -217,9 +217,9 @@ def handle_incremental_tables(config, metadata):
                 sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
                 move_files_between_folders(data_path, "processing", "archive", table)
             else:
-                logging.info("No file found for {}".format(table))
+                logging.debug("No file found for {}".format(table))
 
-            logging.info("End processing table: {}".format(table))
+            logging.debug("End processing table: {}".format(table))
 
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
@@ -239,7 +239,7 @@ def handle_full_tables(config, metadata):
         try:
             table = item["name"]
 
-            logging.info("Start processing table: {}".format(table))
+            logging.debug("Start processing table: {}".format(table))
             metadata_for_table = metadata[table]
             sql_queries_map = sql_routines.getSQL(metadata_for_table, table, "yes", item["pk"], None)
             chk_multipart_scd_filenames_in_uploads_folder(table)
@@ -268,11 +268,11 @@ def handle_full_tables(config, metadata):
                             "SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(
                                     file, e))
                     move_files_between_folders(data_path, "processing", "retry", file, True)
-            logging.info("End processing table: {}".format(table))
 
             if len(file_list) == 0:
                 logging.debug("No file found for {}".format(table))
 
+            logging.debug("End processing table: {}".format(table))
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
 
