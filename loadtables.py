@@ -301,6 +301,10 @@ def main():
 
     # TODO handle execption in order not to stop all the table loads beacause of one table's problem
 
+    if len(sys.argv) != 3:
+        print("Usage: {} <config.yml> <storage_path>".format(sys.argv[0]))
+        return 1
+
     try:
         config_filename = sys.argv[1]
         storage_path = sys.argv[2]
@@ -309,7 +313,7 @@ def main():
 
         setup_logging(config['Logfilename'], config['ConsoleLog'], config['LogLevel'])
 
-        logging.info('Start Insight GP-Import.')
+        logging.info('Start Insight GP-Import Version=%s', config['Version'])
         db = Database(config)
         sql_routines.init(db, config["Schema"])
 
@@ -330,6 +334,7 @@ def main():
     finally:
         db.close_connection()
 
+    return 0
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
