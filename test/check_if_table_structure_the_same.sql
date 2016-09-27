@@ -601,6 +601,86 @@ from
 where
   schemaname = 'py_load_tables_test' and
   tablename not like '%prt%' and
-  tablename not like 'ext_%' 
+  tablename like 'ext_n%' 
   ;
   
+  
+  ----------------------------------
+  ----------------------------------
+
+select py_load_tables_test.get_data_diff_for_table('palette', 'py_load_tables_test');
+
+CREATE OR REPLACE FUNCTION py_load_tables_test.get_data_diff_for_table(p_schema_a text, p_schema_b text) RETURNS
+--setof record AS $$
+text AS $$
+declare 
+
+    v_sql text;
+	v_sql_1 text;
+    v_sql_2 text;
+    v_sql_cnt text;
+    rec_table record;
+	rec record;
+	v_col_list text;
+    r_return record;
+   -- c cursor is
+   -- ;
+begin           		
+    
+    v_sql := '';
+    v_sql_cnt := '';
+    
+    for rec_table in (select tablename 
+                      from 
+                            pg_tables 
+                       where 
+                           schemaname = p_schema_a and
+                           tablename not like 'ext#_%' escape '#' and
+                           tablename not like '%#_prt#_%' escape '#' and
+                           tablename not like '%s#_%' escape '#' and
+                           tablename not like '%p#_%' escape '#' and
+                           tablename not in ('ptalend_flows', 'ptalend_logs', 'ptalend_stats', 'db_version_meta')
+                       )
+    loop
+    
+        v_col_list := '';
+    	for rec in (select
+                        c.column_name || ',' as col_name
+                    from
+                        information_schema.columns c
+                    where
+                        c.table_name = rec_table.tablename and
+                        c.table_schema = 'palette' and
+                        c.column_name not in ('p_id', 'p_filepath', 'p_cre_date')
+                    order by column_name
+    				)
+    	loop
+        
+    		v_col_list := v_col_list || ' ' || rec.col_name;
+    		
+    	end loop;
+        
+        v_col_list := rtrim(v_col_list, ',');
+     
+        v_sql_1 := '(select ' || v_col_list || ' from ' ||  p_schema_a || '.' ||  rec_table.tablename ||
+                    ' except ' ||
+                    ' select ' || v_col_list || ' from ' ||  p_schema_b || '.' ||  rec_table.tablename || ')';
+
+        v_sql_2 := '(select ' || v_col_list || ' from ' ||  p_schema_b || '.' ||  rec_table.tablename ||
+                    ' except ' ||
+                    ' select ' || v_col_list || ' from ' ||  p_schema_a || '.' ||  rec_table.tablename || ')';
+         
+                             
+         v_sql_cnt := v_sql_cnt || '\n select ''' || rec_table.tablename  || ''', (select count(1) from ' || p_schema_a || '.' ||  rec_table.tablename || ')  as cnt_schema_a , (select count(1) from ' || p_schema_b || '.' ||  rec_table.tablename || ') as cnt_schema_b union all \n';
+         v_sql := v_sql || '\n select ''' || rec_table.tablename  || ''', count(1) data_diff_cnt from (' || v_sql_1 || '\n union all \n' || v_sql_2 || ') a union all \n';
+         
+    end loop;
+ 
+    return rtrim(v_sql_cnt, ' union all \n') || ' \n\n\n ' || rtrim(v_sql, ' union all \n');
+    
+end;
+$$ LANGUAGE plpgsql;
+
+
+
+
