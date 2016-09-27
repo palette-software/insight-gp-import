@@ -46,4 +46,4 @@ class TestLoadtables(TestCase):
         loadtables.handle_incremental_tables(config, metadata)
 
         # Not called for async_jobs (no files) and customized_views (not in config)
-        mock_insert_data.assert_called_with(None, 'ext_threadinfo', 'threadinfo')
+        mock_insert_data.assert_called_with([], 'ext_threadinfo', 'threadinfo')
