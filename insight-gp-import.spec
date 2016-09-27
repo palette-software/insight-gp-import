@@ -84,7 +84,7 @@ pip3 install -r /opt/insight-gp-import/requirements.txt
 # /usr/local/bin/palette-insight-server
 /opt/insight-gp-import
 /etc/palette-insight-server
-%dir /var/log/insight-reporting-framework
+%dir /var/log/insight-gp-import
 
 # config files can be defined according to this
 # http://www-uxsup.csx.cam.ac.uk/~jw35/docs/rpm_config.html
