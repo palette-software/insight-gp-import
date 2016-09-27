@@ -13,6 +13,7 @@ FATAL_ERROR = 49
 VERTICAL_TAB = "\013"
 METADATA_INSTALL_PATH = os.path.join("_install", "metadata-install.csv.gz")
 
+
 class PaletteFileParseError(Exception):
     pass
 
@@ -51,6 +52,7 @@ def get_latest_metadata_file(storage_path):
                     return os.path.join(root, file)
 
     return os.path.join(uploads_path, METADATA_INSTALL_PATH)
+
 
 def load_config(filename):
     with open(filename) as config_file:
@@ -117,7 +119,6 @@ def read_metadata(filename):
 
 
 def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, full_match=False):
-
     def is_limit_reached(limit):
         return limit >= 6000
 
@@ -189,8 +190,8 @@ def processing_retry_folder(storage_path, table, metadata_for_table):
             logging.info("End processing file: {}".format(file))
         except Exception as e:
             logging.error(
-                    "Incremental Load RETRY failed: {}. File moved to retried folder and will not be processed further. Exception: {}".format(
-                            file, e))
+                "Incremental Load RETRY failed: {}. File moved to retried folder and will not be processed further. Exception: {}".format(
+                    file, e))
             move_files_between_folders(storage_path, "processing", "retried", file, True)
 
     logging.info("End processing retry folder for table: {}".format(table))
@@ -265,8 +266,8 @@ def handle_full_tables(config, metadata):
                     move_files_between_folders(data_path, "processing", "archive", table)
                 except Exception as e:
                     logging.error(
-                            "SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(
-                                    file, e))
+                        "SCD processing failed for {}. File moved to retry folder and will not be processed further. Exception: {}".format(
+                            file, e))
                     move_files_between_folders(data_path, "processing", "retry", file, True)
 
             if len(file_list) == 0:
@@ -335,6 +336,7 @@ def main():
         db.close_connection()
 
     return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())
