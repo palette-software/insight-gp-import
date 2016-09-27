@@ -1,0 +1,55 @@
+env:
+  global:
+      - DEPLOY_HOST=rpm.palette-software.com
+      - DEPLOY_PATH=/var/palette-rpm-repo
+      - DEPLOY_USER=palette-rpm
+
+      # travis encrypt DEPLOY_PASS=...
+      - secure: "NulG4AvCt6cVPAQkkqQ9xasbHVEVJNjvTV/mKiiWg9JXOmywU0+C4lkUiayhkDP+r7ReznI54tzMP84qQAM0U0mQotNsJ3XGwaCOLkYfDpM0QdU9+kdA2lv5rawn7CMo26Vyz2jXTfULR6LWDNBcxUd+5QuPzANJ01Bffi99yx/cu4MikdiYf+6dZDFwGQcZefkPAcGBGoYxDcx1d80JQCTGxda8zRf9g0Cv/iSvugSIeG2IYNkoF0e3J/ajY5NMCVvtQrEExWVO371C8xb94aFk215fqr3afro/jucsf1AK6+ZQrKXiivE0x83Z7gKW7Pqy8H7NACzM65uC3JG3irGzyEvZCqKGHsUsJ3y/g4UpURlR6dQAIrbMwMAYHlDwxnNNVGySTdXh/9L6zWeXzNZUDXjR4USBk6R9+Er5yMHIdSB6bQR6JA7k545eVoeCFsoswF3DTpo5l56YcpAxDutnuyhvSofabjwo2I9Z9K+/y59PQtKuAbLZ8opy45Saan1IPKv5nF1TQoA7p8H68KnKwLVs/hQGdjdYyZn+CsHWQjG8pgVEwpuX47jW0480Dlb+hsHAIrUnq51WRhAf6NcWbaX0NwV1aaTzMGHtv8xnvM4cDqb9D8Ruq7ZI3Y/D1hNc+OPOjj7mFn7cTp2Kuc+xJiTDlPwaHKDeYEmXNa4="
+
+# install the RPM package
+addons:
+  apt:
+    packages:
+      - rpm
+      # To deploy the rpms, we need to ssh into places, and we dont want to store keys for now
+      - sshpass
+
+# Put a proper version string into the version file
+before_script:
+  - export BUILD_TAG="$TRAVIS_BRANCH-$(date -u "+%Y-%m-%d").$TRAVIS_BUILD_NUMBER"
+  - echo "==== Setting ${BUILD_TAG} as version ===="
+
+script:
+  - export VERSION_NUMBER="$(sed -n 's/Version. \([0-9]*\.[0-9]*\.[0-9]*$\)/\1/p' < gp-import-config.yml)"
+  - export VERSION=v$VERSION_NUMBER.$TRAVIS_BUILD_NUMBER
+  - mkdir -p rpm-build
+  - pushd rpm-build
+  - mkdir -p _build
+
+  # Create directories
+  - mkdir -p opt/insight-gp-import
+  - mkdir -p var/log/insight-gp-import
+  - mkdir -p etc/palette-insight-server
+
+  # Copy the package contents
+  - cp -v ../*.py opt/insight-gp-import
+  - cp -v ../requirements.txt opt/insight-gp-import
+  - cp -v ../*.sh opt/insight-gp-import
+  - cp -v ../gp-import-config.yml etc/palette-insight-server
+
+  - echo "BUILDING VERSION:$VERSION"
+
+  # build the rpm
+  - rpmbuild -bb --buildroot $(pwd) --define "version $VERSION" --define "buildrelease $TRAVIS_BUILD_NUMBER" --define "_rpmdir $(pwd)/_build" ../insight-gp-import.spec
+  - popd
+
+deploy:
+  provider: script
+  script: "./deploy.sh"
+  skip_cleanup: true
+  on:
+    branch: python
+
+notifications:
+  email: false
