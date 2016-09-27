@@ -212,10 +212,12 @@ def handle_incremental_tables(config, metadata):
                 continue
 
             adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table)
-            move_files_between_folders(data_path, "uploads", "processing", table)
-            sql_routines.manage_partitions(table)
-            sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
-            move_files_between_folders(data_path, "processing", "archive", table)
+            if move_files_between_folders(data_path, "uploads", "processing", table) > 0:
+                sql_routines.manage_partitions(table)
+                sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
+                move_files_between_folders(data_path, "processing", "archive", table)
+            else:
+                logging.info("No file found for {}".format(table))
 
             logging.info("End processing table: {}".format(table))
 
@@ -267,6 +269,10 @@ def handle_full_tables(config, metadata):
                                     file, e))
                     move_files_between_folders(data_path, "processing", "retry", file, True)
             logging.info("End processing table: {}".format(table))
+
+            if len(file_list) == 0:
+                logging.debug("No file found for {}".format(table))
+
         except Exception as e:
             logging.error("Processing failed for: {}. Exception: {}".format(table, e))
 
