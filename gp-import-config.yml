@@ -6,9 +6,8 @@ Password: palette123
 Database: palette
 Schema: palette
 gpfdist_addr: localhost:18010
-#Logfilename: /var/log/insight-gp-import/loadtables.log
-Logfilename: loadtables.log
-ConsoleLog: True
+Logfilename: /var/log/insight-gp-import/loadtables.log
+ConsoleLog: False
 LogLevel: INFO
 Tables:
   Incremental:
