@@ -579,7 +579,7 @@ def recreate_external_table(table, metadata_for_table, gpfdist_addr, incremental
 
     drop_table(ext_table, external=True)
     _db.execute_non_query_in_transaction(ext_table_create_sql)
-    logging.info("External table recreated: {table_name}".format(table_name=ext_table))
+    logging.debug("External table recreated: {table_name}".format(table_name=ext_table))
 
 
 def alter_dwh_table_if_needed(alter_list):
