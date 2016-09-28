@@ -1,8 +1,8 @@
 import logging
 import datetime
 
-class SqlRoutines(object):
 
+class SqlRoutines(object):
     def __init__(self, db, schema):
         self._db = db
         self._schema = schema
@@ -25,7 +25,6 @@ class SqlRoutines(object):
         params = {'schema': self._schema, 'table': table}
         return self._db.execute_in_transaction(sql, params)
 
-
     def gen_alter_cols_because_of_metadata_change(self, table, columns_def, incremental=True):
         # TODO type also should be checked
         sql_alter_stmts = []
@@ -46,7 +45,6 @@ class SqlRoutines(object):
 
         return sql_alter_stmts
 
-
     def table_exists(self, table):
         sql = """SELECT COALESCE((  select table_name
                                     from
@@ -63,7 +61,6 @@ class SqlRoutines(object):
 
         return True
 
-
     def get_column_full_type_def(self, type, length, precision):
         query = ""
         column_def = ""
@@ -79,7 +76,6 @@ class SqlRoutines(object):
             column_def += "(28,7)"
 
         return column_def
-
 
     def get_columns_def(self, columns_def, table, type_needed=True, p_id_needed=True):
         cols_def = ""
@@ -117,7 +113,6 @@ class SqlRoutines(object):
 
         return cols_def
 
-
     def get_create_incremental_table_query(self, columns_def, table):
         query = ""
 
@@ -132,7 +127,6 @@ class SqlRoutines(object):
 
         logging.debug("get_create_incremental_table_query - \n" + query)
         return query
-
 
     def get_create_external_table_query(self, columns_def, table):
         query = ""
@@ -155,7 +149,6 @@ class SqlRoutines(object):
 
         logging.debug("getExternalCreateTableQuery - \n" + query)
         return query
-
 
     def add_2_cols_to_coldef(self, coldef, table):
         cm1 = {}
@@ -181,13 +174,12 @@ class SqlRoutines(object):
 
         return new_coldef
 
-
     def drop_table(self, table, external=False):
         external = "external" if external else ""
         self._db.execute_non_query_in_transaction(
-                "drop {external} table if exists {schema_name}.{table_name}".format(schema_name=self._schema, table_name=table,
-                                                                                    external=external))
-
+            "drop {external} table if exists {schema_name}.{table_name}".format(schema_name=self._schema,
+                                                                                table_name=table,
+                                                                                external=external))
 
     def getSQL(self, columns_def, table, scd, pk, scdDate):
         sqlStageFullCreate = "CREATE TABLE #TARGET_SCHEMA.#STAGE_FULL_PREFIX#TABLE_NAME \n ( \n #NATURAL_COLS_WITH_TYPES\n ) "
@@ -358,15 +350,16 @@ class SqlRoutines(object):
                 strNATURAL_COLS_WITHOUT_TYPES_WITH_S = strNATURAL_COLS_WITHOUT_TYPES_WITH_S + "  s_" + table + "." + column_name.lower()
                 strNATURAL_COLS_WITHOUT_TYPES_WITH_T = strNATURAL_COLS_WITHOUT_TYPES_WITH_T + "  t." + column_name.lower()
                 strNATURAL_COLS_WITH_TYPES = strNATURAL_COLS_WITH_TYPES + "  " + column_name.lower() + " " + self.get_column_full_type_def(
-                        column["type"], column["length"], column["precision"])
+                    column["type"], column["length"], column["precision"])
 
-                colSCD_ActPrevListWithoutTypes_String = "  act_#COL, \n  prev_#COL".replace("#TABLE", table).replace("#COL",
-                                                                                                                     column_name.lower())
+                colSCD_ActPrevListWithoutTypes_String = "  act_#COL, \n  prev_#COL".replace("#TABLE", table).replace(
+                    "#COL",
+                    column_name.lower())
                 colSCD_ActPrevListWithTypes_String = "  act_#COL #DATA_TYPE, \n  prev_#COL #DATA_TYPE".replace("#TABLE",
                                                                                                                table).replace(
-                        "#COL", column_name.lower()).replace("#DATA_TYPE",
-                                                             self.get_column_full_type_def(column["type"], column["length"],
-                                                                                      column["precision"]))
+                    "#COL", column_name.lower()).replace("#DATA_TYPE",
+                                                         self.get_column_full_type_def(column["type"], column["length"],
+                                                                                       column["precision"]))
 
                 colSCD_SqlType_String = """    CASE \n
                       WHEN h_#TABLE.#COL IS NULL THEN 'INSERT' \n
@@ -374,14 +367,16 @@ class SqlRoutines(object):
                       WHEN h_#TABLE.#COL IS NOT NULL AND s_#TABLE.#COL IS NOT NULL AND h_#TABLE.#COL=s_#TABLE.#COL THEN 'UPDATE' \n
                       ELSE 'N/A' \n
                     END sql_type"""
-                colSCD_SqlType_String = colSCD_SqlType_String.replace("#TABLE", table).replace("#COL", column_name.lower())
+                colSCD_SqlType_String = colSCD_SqlType_String.replace("#TABLE", table).replace("#COL",
+                                                                                               column_name.lower())
 
                 colSCD_IsEqual_String = """    CASE \n
                       WHEN s_#TABLE.#COL IS NULL AND h_#TABLE.#COL IS NULL THEN 'Y' \n
                       WHEN s_#TABLE.#COL IS NOT NULL AND h_#TABLE.#COL IS NOT NULL AND s_#TABLE.#COL=h_#TABLE.#COL THEN 'Y' \n
                       ELSE 'N' \n
                     END """
-                colSCD_IsEqual_String = colSCD_IsEqual_String.replace("#TABLE", table).replace("#COL", column_name.lower())
+                colSCD_IsEqual_String = colSCD_IsEqual_String.replace("#TABLE", table).replace("#COL",
+                                                                                               column_name.lower())
 
                 if column_name.lower() == "p_cre_date" or column_name.lower() == "p_filepath":
                     colSCD_IsEqual_String = ""
@@ -395,7 +390,7 @@ class SqlRoutines(object):
                         strACT_PREV_LIST_WITHOUT_TYPES = strACT_PREV_LIST_WITHOUT_TYPES + "  " + pk_part
                         strACT_PREV_LIST_WITH_TYPES = strACT_PREV_LIST_WITH_TYPES + "  #COL #DATA_TYPE".replace("#COL",
                                                                                                                 pk_part).replace(
-                                "#DATA_TYPE",
+                            "#DATA_TYPE",
                             self.get_column_full_type_def(column["type"], column["length"], column["precision"]))
                         strSQL_TYPE = colSCD_SqlType_String.replace("#COL", pk_part)
                         strACT_PREV_DEF = strACT_PREV_DEF + "    s_#TABLE.#COL".replace("#TABLE", table).replace("#COL",
@@ -517,13 +512,12 @@ class SqlRoutines(object):
         logging.debug("DWHtableInsertSCD - " + sqlDWHtableInsertSCD)
         return map
 
-
     def manage_partitions(self, table):
         if table in ("threadinfo", "serverlogs", "plainlogs"):
-            query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(schema_name=self._schema,
-                                                                                                       table_name=table)
+            query = ("select {schema_name}.manage_partitions('{schema_name}', '{table_name}')").format(
+                schema_name=self._schema,
+                table_name=table)
             self._db.execute_in_transaction(query)
-
 
     def get_insert_data_from_external_table_query(self, metadata, src_table, trg_table):
         query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
@@ -536,15 +530,13 @@ class SqlRoutines(object):
         query = query.format(schema_name=self._schema, src_table_name=src_table, trg_table_name=trg_table)
         return query
 
-
     def insert_data_from_external_table(self, metadata, src_table, trg_table):
         logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
         sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table)
         result = self._db.execute_non_query_in_transaction(sql)
         logging.info(
-                "End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table,
-                                                                                                result))
-
+            "End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table,
+                                                                                            result))
 
     def apply_scd(self, metadata_for_table, table, scd_date, pk):
         logging.info("Start applying SCD. Table = {}, SCD Date: {}".format(table, scd_date))
@@ -555,7 +547,6 @@ class SqlRoutines(object):
         logging.info("End applying SCD. Table = {}, Updated = {}, Inserted = {}".format(table, upd_ins_rowcount[0],
                                                                                         upd_ins_rowcount[1]))
 
-
     def load_data_from_external_table(self, metadata_for_table, table):
         query = 'truncate table {schema_name}.s_{table_name}'.format(schema_name=self._schema, table_name=table)
         self._db.execute_non_query_in_transaction(query)
@@ -563,22 +554,19 @@ class SqlRoutines(object):
         trg_table = "s_" + table
         self.insert_data_from_external_table(metadata_for_table, src_table, trg_table)
 
-
     def recreate_external_table(self, table, metadata_for_table, gpfdist_addr, incremental):
         ext_table = "ext_" + table
         ext_table_create_sql = self.get_create_external_table_query(metadata_for_table, table)
         ext_table_create_sql = ext_table_create_sql.replace("#EXTERNAL_TABLE",
                                                             "gpfdist://{gpfdist_addr}/*/{table_name}-*.csv.gz".format(
-                                                                    gpfdist_addr=gpfdist_addr, table_name=table))
+                                                                gpfdist_addr=gpfdist_addr, table_name=table))
 
         self.drop_table(ext_table, external=True)
         self._db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.debug("External table recreated: {table_name}".format(table_name=ext_table))
 
-
     def alter_dwh_table_if_needed(self, alter_list):
         self._db.execute_non_query_in_transaction(alter_list)
-
 
     def create_dwh_full_tables_if_needed(self, table, sql_queries_map):
         if not self.table_exists("h_" + table):
@@ -586,7 +574,6 @@ class SqlRoutines(object):
             self._db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
             return True
         return False
-
 
     def create_dwh_incremantal_tables_if_needed(self, table, metadata_for_table):
         # TODO Check if metadata exists for table. Raise execption
