@@ -50,7 +50,7 @@ Packager: Palette Developers <developers@palette-software.com>
 # Add the user for the service & setup SELinux
 # ============================================
 
-Requires(pre): postgresql-devel >= 8.4, python35u-devel >= 3.5
+Requires(pre): postgresql-devel >= 8.4, python35u-devel >= 3.5, palette-insight-server >= 2.0.0
 
 %pre
 # noop
