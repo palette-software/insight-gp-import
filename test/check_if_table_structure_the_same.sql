@@ -637,8 +637,8 @@ begin
                            schemaname = p_schema_a and
                            tablename not like 'ext#_%' escape '#' and
                            tablename not like '%#_prt#_%' escape '#' and
-                           tablename not like '%s#_%' escape '#' and
-                           tablename not like '%p#_%' escape '#' and
+                           tablename not like 's#_%' escape '#' and
+                           tablename not like 'p#_%' escape '#' and
                            tablename not in ('ptalend_flows', 'ptalend_logs', 'ptalend_stats', 'db_version_meta')
                        )
     loop
