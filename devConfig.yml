@@ -1,13 +1,14 @@
 Version: 2.0.0
-Host: localhost
+Host: dev-insight.palette-software.net
 Port: 5432
 User: palette_etl_user
 Password: palette123
 Database: palette
-Schema: palette
+Schema: py_load_tables_test
 gpfdist_addr: localhost:18010
-Logfilename: /var/log/insight-gp-import/loadtables.log
-ConsoleLog: False
+#Logfilename: /var/log/insight-gp-import/loadtables.log
+Logfilename: loadtables.log
+ConsoleLog: True
 LogLevel: INFO
 Tables:
   Incremental:

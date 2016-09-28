@@ -1,27 +1,15 @@
-# Compiled Object files, Static and Dynamic libs (Shared Objects)
-*.o
-*.a
-*.so
+# Log file
+*.log
+*.log.*
 
-# Folders
-_obj
-_test
-
-# IDE files
+# IDEA project file
 .idea
 
-# Architecture specific extensions/prefixes
-*.[568vq]
-[568vq].out
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-*.cgo1.go
-*.cgo2.c
-_cgo_defun.c
-_cgo_gotypes.go
-_cgo_export.*
-
-_testmain.go
-
-*.exe
-*.test
-*.prof
+# vim files
+*.swp
+metadata*
