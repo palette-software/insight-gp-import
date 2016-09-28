@@ -150,22 +150,12 @@ class SqlRoutines(object):
         logging.debug("getExternalCreateTableQuery - \n" + query)
         return query
 
-    def add_2_cols_to_coldef(self, coldef, table):
-        cm1 = {}
-        cm1["schema"] = self._schema
-        cm1["table"] = table
-        cm1["name"] = 'p_filepath'
-        cm1["type"] = 'VARCHAR (500)'
-        cm1["length"] = 0
-        cm1["precision"] = 0
+    def add_filepath_credate_to_coldef(self, coldef, table):
+        cm1 = {"schema": self._schema, "table": table, "name": 'p_filepath', "type": 'VARCHAR (500)', "length": 0,
+               "precision": 0}
 
-        cm2 = {}
-        cm2["schema"] = self._schema
-        cm2["table"] = table
-        cm2["name"] = 'p_cre_date'
-        cm2["type"] = 'TIMESTAMP WITHOUT TIME ZONE'
-        cm2["length"] = 0
-        cm2["precision"] = 0
+        cm2 = {"schema": self._schema, "table": table, "name": 'p_cre_date', "type": 'TIMESTAMP WITHOUT TIME ZONE',
+               "length": 0, "precision": 0}
 
         new_coldef = coldef[:]
 
@@ -338,8 +328,7 @@ class SqlRoutines(object):
         strIS_EQUAL = ""
         strACT_PREV_DEF = ""
 
-        # TODO quick&dirty part1 :)
-        columns_def_extended = self.add_2_cols_to_coldef(columns_def, table)
+        columns_def_extended = self.add_filepath_credate_to_coldef(columns_def, table)
 
         for i in range(len(columns_def_extended)):
             column = columns_def_extended[i]
@@ -576,7 +565,6 @@ class SqlRoutines(object):
         return False
 
     def create_dwh_incremantal_tables_if_needed(self, table, metadata_for_table):
-        # TODO Check if metadata exists for table. Raise execption
         if not self.table_exists(table):
             sql = self.get_create_incremental_table_query(metadata_for_table, table)
             self._db.execute_non_query_in_transaction(sql)
