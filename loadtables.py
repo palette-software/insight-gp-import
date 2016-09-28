@@ -24,19 +24,22 @@ class PaletteMultipartSCD(Exception):
 
 # TODO roadsByLength = sorted(roads, key=lambda x: x['length'], reverse=False)
 def list_files_from_folder(folder_path, filename_pattern, sort_order):
-    sorted_file_list = []
+    file_list = []
     for root, dirs, files in os.walk(folder_path):
         for file in files:
             if re.match(filename_pattern + "-.*csv.gz", file) is not None:
-                sorted_file_list.append(file)
+                file_list.append((root, file))
 
     sort_order = sort_order.lower()
-    if sort_order == "asc":
-        sorted_file_list.sort(reverse=False)
-    elif sort_order == "desc":
-        sorted_file_list.sort(reverse=True)
 
-    return sorted_file_list
+    if sort_order == "asc":
+        file_list.sort(reverse=False)
+    elif sort_order == "desc":
+        file_list.sort(reverse=True)
+
+
+
+    return file_list
 
 
 # TODO rewrite after list_files_from_folder rewrite
@@ -98,7 +101,6 @@ def parsed_line_to_metadata_dict(line):
     return coldef
 
 
-# TODO consider to use python csv loader
 def read_metadata(filename):
     ret = {}
     with gzip.open(filename, 'rt') as metadata_file:
@@ -299,8 +301,6 @@ def main():
     # if there is a new Tableau(TM) version, and there are files from the
     # previous version, currently we only process the newest metadata, thus
     # we can't process the older csvs
-
-    # TODO handle execption in order not to stop all the table loads beacause of one table's problem
 
     if len(sys.argv) != 3:
         print("Usage: {} <config.yml> <storage_path>".format(sys.argv[0]))
