@@ -3,7 +3,7 @@ import logging.handlers
 import yaml
 import sys
 import gzip
-import sql_routines
+from sql_routines import  SqlRoutines
 from database import Database
 import os
 import re
@@ -174,7 +174,7 @@ def chk_multipart_scd_filenames_in_uploads_folder(table):
                 raise PaletteMultipartSCD("MultiPart SCD table, STOPPING! File = {}".format(file))
 
 
-def processing_retry_folder(storage_path, table, metadata_for_table):
+def processing_retry_folder(storage_path, table, metadata_for_table, sql_routines):
     retry_path = os.path.join(storage_path, "retry")
     file_list = list_files_from_folder(retry_path, table, "asc")
     if len(file_list) == 0:
@@ -197,7 +197,7 @@ def processing_retry_folder(storage_path, table, metadata_for_table):
     logging.info("End processing retry folder for table: {}".format(table))
 
 
-def handle_incremental_tables(config, metadata):
+def handle_incremental_tables(config, metadata, sql_routines):
     logging.info("Start loading incremental tables.")
 
     data_path = config["storage_path"]
@@ -207,12 +207,12 @@ def handle_incremental_tables(config, metadata):
             logging.debug("Start processing table: {}".format(table))
 
             metadata_for_table = metadata[table]
-            processing_retry_folder(data_path, table, metadata_for_table)
+            processing_retry_folder(data_path, table, metadata_for_table, sql_routines)
             if sql_routines.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
                 logging.info("Table created: {}".format(table))
                 continue
 
-            adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table)
+            adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table, sql_routines)
             if move_files_between_folders(data_path, "uploads", "processing", table) > 0:
                 sql_routines.manage_partitions(table)
                 sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
@@ -229,7 +229,7 @@ def handle_incremental_tables(config, metadata):
     logging.info("End loading incremental tables.")
 
 
-def handle_full_tables(config, metadata):
+def handle_full_tables(config, metadata, sql_routines):
     logging.info("Start loading full tables.")
 
     schema = config["Schema"]
@@ -249,7 +249,7 @@ def handle_full_tables(config, metadata):
                 logging.info("Table created: {}".format(table))
                 continue
 
-            adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_for_table, table)
+            adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_for_table, table, sql_routines)
 
             # in case some files were stuck here from prev. run
             move_files_between_folders(data_path, "processing", "retry", table)
@@ -280,7 +280,7 @@ def handle_full_tables(config, metadata):
     logging.info("End loading full tables.")
 
 
-def adjust_table_to_metadata(gpfdist_addr, incremental, metadata_for_table, table):
+def adjust_table_to_metadata(gpfdist_addr, incremental, metadata_for_table, table, sql_routines):
     sql_routines.recreate_external_table(table, metadata_for_table, gpfdist_addr,
                                          incremental)
     # Check if structure has modifed
@@ -316,14 +316,14 @@ def main():
 
         logging.info('Start Insight GP-Import Version=%s', config['Version'])
         db = Database(config)
-        sql_routines.init(db, config["Schema"])
+        sr = SqlRoutines(db, config["Schema"])
 
         latest_metadata_file = get_latest_metadata_file(config['storage_path'])
         logging.debug("Metadata file: " + latest_metadata_file)
         metadata = read_metadata(latest_metadata_file)
 
-        handle_incremental_tables(config, metadata)
-        handle_full_tables(config, metadata)
+        handle_incremental_tables(config, metadata, sr)
+        handle_full_tables(config, metadata, sr)
 
         logging.info('End Insight GP-Import.')
 
