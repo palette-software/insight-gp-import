@@ -24,22 +24,19 @@ class PaletteMultipartSCD(Exception):
 
 # TODO roadsByLength = sorted(roads, key=lambda x: x['length'], reverse=False)
 def list_files_from_folder(folder_path, filename_pattern, sort_order):
-    file_list = []
+    sorted_file_list = []
     for root, dirs, files in os.walk(folder_path):
         for file in files:
             if re.match(filename_pattern + "-.*csv.gz", file) is not None:
-                file_list.append((root, file))
+                sorted_file_list.append(file)
 
     sort_order = sort_order.lower()
-
     if sort_order == "asc":
-        file_list.sort(reverse=False)
+        sorted_file_list.sort(reverse=False)
     elif sort_order == "desc":
-        file_list.sort(reverse=True)
+        sorted_file_list.sort(reverse=True)
 
-
-
-    return file_list
+    return sorted_file_list
 
 
 # TODO rewrite after list_files_from_folder rewrite
