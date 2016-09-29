@@ -1,5 +1,5 @@
 from unittest import TestCase
-import sql_routines as sr
+import sql_routines
 import loadtables as lt
 import re
 import gzip
@@ -322,7 +322,7 @@ class TestSqlRoutines(TestCase):
                 """
 
         result_sql = re.sub("[\s+]", "", result_sql)
-        sr.init(None, "palette")
+        sr = sql_routines.SqlRoutines(None, "palette")
         sql_def_map = sr.getSQL(metadata_for_users, "users", "yes", ["id"], "2016-06-08 06:12:22")
         users_insert = sql_def_map["DWHtableInsertSCD"]
         users_insert = re.sub("[\s+]", "", users_insert)
@@ -388,7 +388,7 @@ class TestSqlRoutines(TestCase):
                         """
 
         result_sql = re.sub("[\s+]", "", result_sql)
-        sr.init(None, "palette")
+        sr = sql_routines.SqlRoutines(None, "palette")
         threadinfo_insert = sr.get_insert_data_from_external_table_query(metadata_for_threadinfo, "ext_threadinfo", "threadinfo")
         threadinfo_insert= re.sub("[\s+]", "", threadinfo_insert)
         self.assertTrue(result_sql == threadinfo_insert)

@@ -20,12 +20,10 @@ class TestLoadtables(TestCase):
         return len(self.fake_list_files_from_folder(None, filename_pattern, None))
 
     @patch('loadtables.adjust_table_to_metadata')
-    @patch('sql_routines._db')
-    @patch('sql_routines.create_dwh_incremantal_tables_if_needed')
-    @patch('sql_routines.insert_data_from_external_table')
+    @patch('sql_routines.SqlRoutines')
     @patch('loadtables.move_files_between_folders')
     @patch('loadtables.list_files_from_folder')
-    def test_handle_incremental_tables(self, mock_list_files, mock_move_files, mock_insert_data, mock_dwh, mock_db, mock_adjust):
+    def test_handle_incremental_tables(self, mock_list_files, mock_move_files, mock_sql_routines, mock_adjust):
         config = {
             "storage_path": "/fake",
             "Tables": {
@@ -38,12 +36,12 @@ class TestLoadtables(TestCase):
             'threadinfo': None,
             'async_jobs': None,
         }
-
-        mock_dwh.return_value = False
+        
+        mock_sql_routines.create_dwh_incremantal_tables_if_needed.return_value = False
         mock_list_files.side_effect = self.fake_list_files_from_folder
         mock_move_files.side_effect = self.fake_move_files_between_folders
 
-        loadtables.handle_incremental_tables(config, metadata)
+        loadtables.handle_incremental_tables(config, metadata, mock_sql_routines)
 
         # Not called for async_jobs (no files) and customized_views (not in config)
-        mock_insert_data.assert_called_with(None, 'ext_threadinfo', 'threadinfo')
+        mock_sql_routines.insert_data_from_external_table.assert_called_with(None, 'ext_threadinfo', 'threadinfo')
