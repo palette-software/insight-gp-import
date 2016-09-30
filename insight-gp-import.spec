@@ -30,7 +30,6 @@
 
 Name: palette-insight-gp-import
 Version: %version
-Epoch: 400
 Release: %buildrelease
 Summary: Palette Insight GP Import
 AutoReqProv: no
@@ -50,7 +49,7 @@ Packager: Palette Developers <developers@palette-software.com>
 # Add the user for the service & setup SELinux
 # ============================================
 
-Requires(pre): postgresql-devel >= 8.4, python35u-devel >= 3.5, palette-insight-server >= 2.0.0
+Requires(pre): postgresql-devel >= 8.4, python35u-devel >= 3.5, palette-insight-server >= 400:2.0.0
 
 %pre
 # noop
