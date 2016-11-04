@@ -50,6 +50,7 @@ Packager: Palette Developers <developers@palette-software.com>
 # ============================================
 
 Requires(pre): postgresql-devel >= 8.4, python35u-devel >= 3.5, palette-insight-server >= 400:2.0.0
+Requires: palette-greenplum-installer
 
 %pre
 # noop
