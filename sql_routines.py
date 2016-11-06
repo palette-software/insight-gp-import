@@ -516,6 +516,9 @@ class SqlRoutines(object):
                 self.get_columns_def(metadata, src_table, type_needed=False, p_id_needed=False) + \
                 " FROM {schema_name}.{src_table_name}"
 
+        if src_table == "threadinfo":
+            query += " ORDER BY ts"
+
         query = query.format(schema_name=self._schema, src_table_name=src_table, trg_table_name=trg_table)
         return query
 
