@@ -106,6 +106,10 @@ class SqlRoutines(object):
 
         cols_def = cols_def.lstrip(",")
 
+        # This if-else part should be deleted, because the ext tables
+        # don't need to contain p_cre_date. However, should the
+        # get_create_incremental_table_query function add this column
+        # to its query?
         if type_needed:
             cols_def += " , \"p_cre_date\" timestamp without time zone \n"
         else:
@@ -121,6 +125,7 @@ class SqlRoutines(object):
         query += "."
         query += "\"" + table.lower() + "\""
         query += "\n(\n"
+        # the second 'table' parameter is pointless
         query += self.get_columns_def(columns_def, table, table)
         query += ")"
         query += " WITH (appendonly=true, orientation=row, compresstype=quicklz)"
@@ -259,6 +264,7 @@ class SqlRoutines(object):
         colPK_JOIN_IN_ON_Template = "h_#TABLE.#PK_PART=s_#TABLE.#PK_PART"
         colPK_JOIN_IN_WHERE_Template = "h_#TABLE.#PK_PART=t.#PK_PART"
 
+        # why declare empty strings if they are overwritten?
         colSCD_ActPrevListWithoutTypes_String = ""
         colSCD_ActPrevListWithTypes_String = ""
         colSCD_SqlType_String = ""
@@ -381,6 +387,8 @@ class SqlRoutines(object):
                                                                                                                 pk_part).replace(
                             "#DATA_TYPE",
                             self.get_column_full_type_def(column["type"], column["length"], column["precision"]))
+                        # This replace is pointless, the previous replace eliminated every #COL appearance
+                        # (and this replace wants to replace #COL with the same thing)
                         strSQL_TYPE = colSCD_SqlType_String.replace("#COL", pk_part)
                         strACT_PREV_DEF = strACT_PREV_DEF + "    s_#TABLE.#COL".replace("#TABLE", table).replace("#COL",
                                                                                                                  pk_part)
@@ -590,6 +598,7 @@ class SqlRoutines(object):
     def alter_dwh_table_if_needed(self, alter_list):
         self._db.execute_non_query_in_transaction(alter_list)
 
+    # this function will not be needed, as the datamodel will handle table creations
     def create_dwh_full_tables_if_needed(self, table, sql_queries_map):
         if not self.table_exists("h_" + table):
             self._db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
