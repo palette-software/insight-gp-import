@@ -48,11 +48,11 @@ script:
 
   - echo "BUILDING VERSION:v$VERSION"
 
-  # Freeze the dependencies of requirements
-  - export SPEC_FILE=insight-gp-import.spec
-  - ./freeze-requirement.sh palette-greenplum-installer x86_64 ${SPEC_FILE}
-  # Show the contents of the modified (frozen versions) spec file
-  - cat ${SPEC_FILE}
+  # # Freeze the dependencies of requirements
+  # - export SPEC_FILE=insight-gp-import.spec
+  # - ./freeze-requirement.sh palette-greenplum-installer x86_64 ${SPEC_FILE}
+  # # Show the contents of the modified (frozen versions) spec file
+  # - cat ${SPEC_FILE}
 
   # build the rpm
   - rpmbuild -bb --buildroot $(pwd) --define "version $VERSION" --define "buildrelease $TRAVIS_BUILD_NUMBER" --define "_rpmdir $(pwd)/_build" ${SPEC_FILE}
