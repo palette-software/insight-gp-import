@@ -517,7 +517,7 @@ class SqlRoutines(object):
                 " FROM {schema_name}.{src_table_name}"
 
         if trg_table == "threadinfo":
-            query += " ORDER BY ts"
+            query += " ORDER BY host_name, ts"
 
         query = query.format(schema_name=self._schema, src_table_name=src_table, trg_table_name=trg_table)
         return query
