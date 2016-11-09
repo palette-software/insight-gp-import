@@ -117,10 +117,28 @@ def read_metadata(filename):
     return ret
 
 
+def get_metadata_from_db(table, sql_routines):
+    metadata_from_table = []
+    column_def = sql_routines.get_table_columns_def_from_db(table)
+    technical_cols = ['p_id', 'p_filepath', 'p_cre_date', 'p_active_flag', 'p_valid_from', 'p_valid_to']
+    attnum_i = 1
+    for schemaname, tablename, columnname, format_type, attnum in column_def:
+        column = {'schema': schemaname,
+                'table': tablename,
+                'name': columnname,
+                'type': format_type,
+                'attnum': attnum_i,
+                'length': 0,
+                'precision': 0}
+        if columnname not in technical_cols:
+            metadata_from_table.append(column)
+            attnum_i += 1
+    return metadata_from_table
+
+
 def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, full_match=False):
     def is_limit_reached(limit):
         return limit >= 6000
-
     from_path = os.path.join(storage_path, f_from)
     file_move_cnt = 0
 
@@ -261,7 +279,8 @@ def handle_full_tables(config, metadata, sql_routines):
                     move_files_between_folders(data_path, "uploads", "processing", file, True)
                     sql_routines.load_data_from_external_table(metadata_for_table, table)
                     scd_date = parse_datetime(file)
-                    sql_routines.apply_scd(metadata_for_table, table, scd_date, item["pk"])
+                    metadata_from_table = get_metadata_from_db(table, sql_routines)
+                    sql_routines.apply_scd(metadata_from_table, table, scd_date, item["pk"])
                     move_files_between_folders(data_path, "processing", "archive", table)
                 except Exception as e:
                     logging.error(
