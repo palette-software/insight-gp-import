@@ -38,13 +38,11 @@ script:
   # Create directories
   - mkdir -p opt/insight-gp-import
   - mkdir -p var/log/insight-gp-import
-  - mkdir -p etc/palette-insight-server
 
   # Copy the package contents
   - cp -v ../*.py opt/insight-gp-import
-  - cp -v ../requirements.txt opt/insight-gp-import
   - cp -v ../*.sh opt/insight-gp-import
-  - cp -v ../gp-import-config.yml etc/palette-insight-server
+  - cp -v ../requirements.txt opt/insight-gp-import
 
   - echo "BUILDING VERSION:v$VERSION"
 
