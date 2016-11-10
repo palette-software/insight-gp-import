@@ -55,9 +55,6 @@ Requires: palette-greenplum-installer
 Requires: palette-supervisor
 Requires: palette-insight-server >= 400:2.0.0
 
-%pre
-# noop
-
 %description
 Palette Insight GP Import
 
@@ -79,6 +76,7 @@ mkdir -p %{buildroot}/var/log/insight-gpfdist/
 # /usr/local/bin/palette-insight-server
 /opt/insight-gp-import
 /etc/supervisord.d
+%attr(-,gpadmin,gpadmin) /tmp/create_external_dummy_table.sql
 %dir /var/log/insight-gp-import
 %dir /var/log/insight-gpfdist
 
@@ -87,6 +85,9 @@ mkdir -p %{buildroot}/var/log/insight-gpfdist/
 %config /etc/palette-insight-server/gp-import-config.yml
 
 %clean
+# noop
+
+%pre
 # noop
 
 %post
@@ -98,6 +99,26 @@ mkdir -p /data/insight-server/uploads/palette/processing
 chown -R insight:insight /data/insight-server/uploads
 
 supervisorctl restart insight-gpfdist
+
+# Run initial LoadTables if necessary
+METADATA_FOUND=$(find /data/insight-server/uploads/palette/uploads | grep metadata)
+if [ $METADATA_FOUND != 0 ]; then
+    if [ $METADATA_FOUND == 1 ]; then
+        mkdir -p /data/insight-server/uploads/palette/uploads/_install
+        cp /opt/insight-gp-import/9.3.2.csv.gz /data/insight-server/uploads/palette/uploads/_install/metadata-install.csv.gz
+        /opt/insight-gp-import/run_gp_import.sh
+    else
+        echo "Failed to determine whether initial LoadTables is required or not!"
+        exit 1
+    fi
+fi
+
+# Create and drop a dummy external table to create the errors table ext_error_table
+sudo -u gpadmin bash -lc "source /usr/local/greenplum-db/greenplum_path.sh && \
+    /usr/local/greenplum-db/bin/psql \
+    -d palette \
+    -U palette_etl_user \
+    -f /tmp/create_external_dummy_table.sql"
 
 %postun
 supervisorctl stop insight-gpfdist
