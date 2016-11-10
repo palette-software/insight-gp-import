@@ -385,12 +385,16 @@ class TestSqlRoutines(TestCase):
                      , "thread_level"
                      , "p_cre_date"
                      FROM palette.ext_threadinfo
+                     WHERE 1 = 1
+                        and ts >= date'2016-11-01'
+                        and ts < date'2016-11-01' + 1
                         """
 
         result_sql = re.sub("[\s+]", "", result_sql)
         sr = sql_routines.SqlRoutines(None, "palette")
-        threadinfo_insert = sr.get_insert_data_from_external_table_query(metadata_for_threadinfo, "ext_threadinfo", "threadinfo")
+        threadinfo_insert = sr.get_insert_data_from_external_table_query(metadata_for_threadinfo, "ext_threadinfo", "threadinfo", "2016-11-01")
         threadinfo_insert= re.sub("[\s+]", "", threadinfo_insert)
+        print(result_sql)
         self.assertTrue(result_sql == threadinfo_insert)
 
 

@@ -1,4 +1,4 @@
-Version: 2.0.1
+Version: 2.0.2
 Host: localhost
 Port: 5432
 User: palette_etl_user
