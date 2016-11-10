@@ -517,6 +517,8 @@ class SqlRoutines(object):
                 " FROM {schema_name}.{src_table_name}"
 
         if trg_table == "threadinfo":
+            if day is None:
+                raise Exception("Day parameter cannot be None in case of threadinfo")
             query += " WHERE 1 = 1" \
                      "      and ts >= date'{day}'" \
                      "      and ts < date'{day}' + 1"
@@ -533,8 +535,9 @@ class SqlRoutines(object):
         logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
         sqls = []
         if trg_table == "threadinfo":
-            for day in self.get_distinct_days_from_ext_threadinfo():
-                sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table, day[0])
+            for row in self.get_distinct_days_from_ext_threadinfo():
+                day = row[0]
+                sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table, day)
                 sqls.append(sql)
         else:
             sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table)
