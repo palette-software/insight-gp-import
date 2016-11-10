@@ -58,9 +58,6 @@ Requires: palette-insight-server >= 400:2.0.0
 %pre
 # noop
 
-%postun
-# noop
-
 %description
 Palette Insight GP Import
 
@@ -71,16 +68,8 @@ Palette Insight GP Import
 # noop
 
 %install
-# noop
-
-%post
-# Python3 and pip3 is installed by palette-insight-toolkit
-pip3 install -r /opt/insight-gp-import/requirements.txt
-
-supervisorctl restart insight-gpfdist
-
-%clean
-# noop
+# Create the logfile directory for supervisord
+mkdir -p %{buildroot}/var/log/insight-gpfdist/
 
 %files
 %defattr(-,insight,insight,-)
@@ -89,7 +78,6 @@ supervisorctl restart insight-gpfdist
 # with "/", then make sure paths with spaces are quoted.
 # /usr/local/bin/palette-insight-server
 /opt/insight-gp-import
-/etc/palette-insight-server
 /etc/supervisord.d
 %dir /var/log/insight-gp-import
 %dir /var/log/insight-gpfdist
@@ -97,5 +85,21 @@ supervisorctl restart insight-gpfdist
 # config files can be defined according to this
 # http://www-uxsup.csx.cam.ac.uk/~jw35/docs/rpm_config.html
 %config /etc/palette-insight-server/gp-import-config.yml
+
+%clean
+# noop
+
+%post
+# Python3 and pip3 is installed by palette-insight-toolkit
+pip3 install -r /opt/insight-gp-import/requirements.txt
+
+# Make sure that the uploads folder exists
+mkdir -p /data/insight-server/uploads/palette/processing
+chown -R insight:insight /data/insight-server/uploads
+
+supervisorctl restart insight-gpfdist
+
+%postun
+supervisorctl stop insight-gpfdist
 
 %changelog
