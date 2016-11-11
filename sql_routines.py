@@ -25,25 +25,6 @@ class SqlRoutines(object):
         params = {'schema': self._schema, 'table': table}
         return self._db.execute_in_transaction(sql, params)
 
-    def gen_alter_cols_because_of_metadata_change(self, table, columns_def, incremental=True):
-        # TODO type also should be checked
-        sql_alter_stmts = []
-        table_prefix = "h_" if not incremental else ""
-        cols_def_from_db = self.get_table_columns_def_from_db(table_prefix + table)
-
-        only_col_names = [cd[2] for cd in cols_def_from_db]
-
-        for col_def in columns_def:
-            if col_def["name"] not in only_col_names:
-                sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def["name"] + " " + \
-                           col_def["type"] + "  default null;\n"
-                if incremental:
-                    sql_alter_stmts.append(sql_stmt.format(schema_name=self._schema, table_name=table, table_type=""))
-                else:
-                    sql_alter_stmts.append(sql_stmt.format(schema_name=self._schema, table_name=table, table_type="s_"))
-                    sql_alter_stmts.append(sql_stmt.format(schema_name=self._schema, table_name=table, table_type="h_"))
-
-        return sql_alter_stmts
 
     def table_exists(self, table):
         sql = """SELECT COALESCE((  select table_name
@@ -594,9 +575,6 @@ class SqlRoutines(object):
         self.drop_table(ext_table, external=True)
         self._db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.debug("External table recreated: {table_name}".format(table_name=ext_table))
-
-    def alter_dwh_table_if_needed(self, alter_list):
-        self._db.execute_non_query_in_transaction(alter_list)
 
     # this function will not be needed, as the datamodel will handle table creations
     def create_dwh_full_tables_if_needed(self, table, sql_queries_map):

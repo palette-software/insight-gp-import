@@ -301,9 +301,6 @@ def handle_full_tables(config, metadata, sql_routines):
 def adjust_table_to_metadata(gpfdist_addr, incremental, metadata_for_table, table, sql_routines):
     sql_routines.recreate_external_table(table, metadata_for_table, gpfdist_addr,
                                          incremental)
-    # Check if structure has modifed
-    alter_list = sql_routines.gen_alter_cols_because_of_metadata_change(table, metadata_for_table, incremental)
-    sql_routines.alter_dwh_table_if_needed(alter_list)
 
 
 TYPE_CONVERSION_MAP = {
