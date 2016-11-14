@@ -101,7 +101,8 @@ chown -R insight:insight /data/insight-server/uploads
 supervisorctl restart insight-gpfdist
 
 # Run initial LoadTables if necessary
-METADATA_FOUND=$(find /data/insight-server/uploads/palette/uploads | grep metadata)
+find /data/insight-server/uploads/palette/uploads | grep metadata
+METADATA_FOUND=$?
 if [ $METADATA_FOUND != 0 ]; then
     if [ $METADATA_FOUND == 1 ]; then
         mkdir -p /data/insight-server/uploads/palette/uploads/_install
