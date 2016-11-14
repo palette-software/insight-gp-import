@@ -98,6 +98,10 @@ pip3 install -r /opt/insight-gp-import/requirements.txt
 mkdir -p /data/insight-server/uploads/palette/processing
 chown -R insight:insight /data/insight-server/uploads
 
+# Detect new service
+service supervisord restart
+
+# (Re)start insight-gpfdist via supervisord
 supervisorctl restart insight-gpfdist
 
 sudo -u gpadmin bash -lc "source /usr/local/greenplum-db/greenplum_path.sh && \
