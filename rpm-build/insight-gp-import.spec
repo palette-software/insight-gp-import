@@ -100,6 +100,15 @@ chown -R insight:insight /data/insight-server/uploads
 
 supervisorctl restart insight-gpfdist
 
+sudo -u gpadmin bash -lc "source /usr/local/greenplum-db/greenplum_path.sh && \
+    /usr/local/greenplum-db/bin/psql \
+    -q \
+    -d palette \
+    -f /opt/insight-gp-import/init_palette_schema.sql"
+
+sudo -u gpadmin bash -lc "source /usr/local/greenplum-db/greenplum_path.sh && \
+    gpstop -u"
+
 # Run initial LoadTables if necessary
 find /data/insight-server/uploads/palette/uploads | grep metadata
 METADATA_FOUND=$?
@@ -117,6 +126,7 @@ fi
 # Create and drop a dummy external table to create the errors table ext_error_table
 sudo -u gpadmin bash -lc "source /usr/local/greenplum-db/greenplum_path.sh && \
     /usr/local/greenplum-db/bin/psql \
+    -q \
     -d palette \
     -U palette_etl_user \
     -f /tmp/create_external_dummy_table.sql"
