@@ -118,9 +118,11 @@ find /data/insight-server/uploads/palette/uploads | grep metadata
 METADATA_FOUND=$?
 if [ $METADATA_FOUND != 0 ]; then
     if [ $METADATA_FOUND == 1 ]; then
-        mkdir -p /data/insight-server/uploads/palette/uploads/_install
-        cp /opt/insight-gp-import/9.3.2.csv.gz /data/insight-server/uploads/palette/uploads/_install/metadata-install.csv.gz
-        /opt/insight-gp-import/run_gp_import.sh
+        # Run initial LoadTables as insight user
+        sudo -u insight bash -lc \
+            "mkdir -p /data/insight-server/uploads/palette/uploads/_install
+            cp /opt/insight-gp-import/9.3.2.csv.gz /data/insight-server/uploads/palette/uploads/_install/metadata-install.csv.gz
+            /opt/insight-gp-import/run_gp_import.sh"
     else
         echo "Failed to determine whether initial LoadTables is required or not!"
         exit 1
