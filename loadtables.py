@@ -127,7 +127,7 @@ def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, ful
     if not full_match:
         filename_pattern += "-"
     for root, dirs, files in os.walk(from_path):
-        for file in files:
+        for file in sorted(files):
             if re.match(filename_pattern, file) is not None:
                 src = os.path.join(root, file)
                 trg = get_target_path(f_from, f_to, src)

@@ -508,7 +508,7 @@ class SqlRoutines(object):
                 table_name=table)
             self._db.execute_in_transaction(query)
 
-    def get_insert_data_from_external_table_query(self, metadata, src_table, trg_table):
+    def get_insert_data_from_external_table_query(self, metadata, src_table, trg_table, day=None):
         query = "INSERT INTO {schema_name}.{trg_table_name} ( \n" + \
                 self.get_columns_def(metadata, src_table, type_needed=False, p_id_needed=False) + \
                 " ) \n" \
@@ -516,16 +516,35 @@ class SqlRoutines(object):
                 self.get_columns_def(metadata, src_table, type_needed=False, p_id_needed=False) + \
                 " FROM {schema_name}.{src_table_name}"
 
-        query = query.format(schema_name=self._schema, src_table_name=src_table, trg_table_name=trg_table)
+        if trg_table == "threadinfo":
+            if day is None:
+                raise Exception("Day parameter cannot be None in case of threadinfo")
+            query += " WHERE 1 = 1" \
+                     "      and ts >= date'{day}'" \
+                     "      and ts < date'{day}' + 1"
+
+        query = query.format(schema_name=self._schema, src_table_name=src_table, trg_table_name=trg_table, day=day)
         return query
+
+    def get_distinct_days_from_ext_threadinfo(self):
+        query = "select distinct to_char(ts::date, 'yyyy-mm-dd') as day from ext_threadinfo order by 1"
+        result = self._db.execute_in_transaction(query)
+        return result
 
     def insert_data_from_external_table(self, metadata, src_table, trg_table):
         logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
-        sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table)
-        result = self._db.execute_non_query_in_transaction(sql)
+        sqls = []
+        if trg_table == "threadinfo":
+            for row in self.get_distinct_days_from_ext_threadinfo():
+                day = row[0]
+                sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table, day)
+                sqls.append(sql)
+        else:
+            sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table)
+            sqls.append(sql)
+        result = self._db.execute_non_query_in_transaction(sqls)
         logging.info(
-            "End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table,
-                                                                                            result))
+            "End loading data from external table - From: {}, To: {}. Inserted = {}".format(src_table, trg_table, result))
 
     def apply_scd(self, metadata_for_table, table, scd_date, pk):
         logging.info("Start applying SCD. Table = {}, SCD Date: {}".format(table, scd_date))
