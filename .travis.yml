@@ -31,7 +31,7 @@ script:
   # Run tests
   - python -m pytest test/
 
-  - _scripts/rpm.sh
+  - scripts/rpm.sh
 
 deploy:
   provider: script
