@@ -25,7 +25,7 @@ before_script:
   - echo "==== Setting ${BUILD_TAG} as version ===="
 
 script:
-  - export VERSION_NUMBER="$(sed -n 's/Version. \([0-9]*\.[0-9]*\.[0-9]*$\)/\1/p' < gp-import-config.yml)"
+  - export VERSION_NUMBER="$(sed -n 's/Version. \([0-9]*\.[0-9]*\.[0-9]*$\)/\1/p' < rpm-build/etc/palette-insight-server/gp-import-config.yml)"
   - export VERSION=$VERSION_NUMBER.$TRAVIS_BUILD_NUMBER
 
   # Run tests
