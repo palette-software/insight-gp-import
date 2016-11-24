@@ -523,19 +523,33 @@ class SqlRoutines(object):
                      "      and ts >= date'{day}'" \
                      "      and ts < date'{day}' + 1"
 
+        if trg_table in ("http_requests", "background_jobs", "async_jobs"):
+            if day is None:
+                raise Exception("Day parameter cannot be None in case of {}".format(trg_table))
+            query += " WHERE 1 = 1" \
+                     "      and created_at >= date'{day}'" \
+                     "      and created_at < date'{day}' + 1"
+
         query = query.format(schema_name=self._schema, src_table_name=src_table, trg_table_name=trg_table, day=day)
         return query
 
-    def get_distinct_days_from_ext_threadinfo(self):
-        query = "select distinct to_char(ts::date, 'yyyy-mm-dd') as day from ext_threadinfo order by 1"
+    def get_distinct_days_from_table(self, table, column):
+        query = "select distinct to_char({column_name}::date, 'yyyy-mm-dd') as day from {schema_name}.{table_name} order by 1".format(schema_name=self._schema, column_name=column, table_name=table)
         result = self._db.execute_in_transaction(query)
         return result
 
     def insert_data_from_external_table(self, metadata, src_table, trg_table):
         logging.info("Start loading data from external table - From: {}, To: {}".format(src_table, trg_table))
         sqls = []
-        if trg_table == "threadinfo":
-            for row in self.get_distinct_days_from_ext_threadinfo():
+        if trg_table in ("threadinfo", "http_requests", "background_jobs", "async_jobs"):
+            if trg_table == "threadinfo":
+                column_name = "ts"
+            else:
+                column_name = "created_at"
+
+            rows = self.get_distinct_days_from_table("ext_" + trg_table, column_name)
+
+            for row in rows:
                 day = row[0]
                 sql = self.get_insert_data_from_external_table_query(metadata, src_table, trg_table, day)
                 sqls.append(sql)
