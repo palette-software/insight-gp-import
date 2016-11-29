@@ -138,6 +138,16 @@ sudo -u gpadmin bash -lc "source /usr/local/greenplum-db/greenplum_path.sh && \
     -f /tmp/create_external_dummy_table.sql"
 
 %postun
-supervisorctl stop insight-gpfdist
+case "$1" in
+  0)
+    # This is an un-installation.
+    supervisorctl stop insight-gpfdist
+  ;;
+  1)
+    # This is an upgrade.
+    # Do nothing.
+    :
+  ;;
+esac
 
 %changelog
