@@ -107,6 +107,10 @@ Tables:
       pk:
         - id
     -
+      name: customized_views
+      pk:
+        - id
+    -
       name: subscriptions_customized_views
       pk:
         - id

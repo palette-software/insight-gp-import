@@ -225,9 +225,6 @@ def handle_incremental_tables(config, metadata, sql_routines):
 
             metadata_for_table = metadata[table]
             processing_retry_folder(data_path, table, metadata_for_table, sql_routines)
-            if sql_routines.create_dwh_incremantal_tables_if_needed(table, metadata_for_table):
-                logging.info("Table created: {}".format(table))
-                continue
 
             adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table, sql_routines)
             if move_files_between_folders(data_path, "uploads", "processing", table) > 0:
@@ -262,10 +259,6 @@ def handle_full_tables(config, metadata, sql_routines):
             sql_queries_map = sql_routines.getSQL(metadata_for_table, table, "yes", item["pk"], None)
             chk_multipart_scd_filenames_in_uploads_folder(table)
 
-            if sql_routines.create_dwh_full_tables_if_needed(table, sql_queries_map):
-                logging.info("Table created: {}".format(table))
-                continue
-
             adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_for_table, table, sql_routines)
 
             # in case some files were stuck here from prev. run
@@ -279,7 +272,7 @@ def handle_full_tables(config, metadata, sql_routines):
                     move_files_between_folders(data_path, "uploads", "processing", file, True)
                     sql_routines.load_data_from_external_table(metadata_for_table, table)
                     scd_date = parse_datetime(file)
-                    metadata_from_table = get_metadata_from_db(table, sql_routines)
+                    metadata_from_table = get_metadata_from_db("h_" + table, sql_routines)
                     sql_routines.apply_scd(metadata_from_table, table, scd_date, item["pk"])
                     move_files_between_folders(data_path, "processing", "archive", table)
                 except Exception as e:

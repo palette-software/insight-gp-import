@@ -25,23 +25,6 @@ class SqlRoutines(object):
         params = {'schema': self._schema, 'table': table}
         return self._db.execute_in_transaction(sql, params)
 
-
-    def table_exists(self, table):
-        sql = """SELECT COALESCE((  select table_name
-                                    from
-                                        information_schema.tables
-                                    where
-                                        lower(table_schema) = lower(%(schema)s) AND
-                                        lower(table_name) = lower(%(table)s)
-                ), 'MISSING_TABLE')"""
-
-        params = {'schema': self._schema, 'table': table}
-        result = self._db.execute_in_transaction(sql, params)
-        if result[0][0] == "MISSING_TABLE":
-            return False
-
-        return True
-
     def get_column_full_type_def(self, type, length, precision):
         query = ""
         column_def = ""
@@ -97,22 +80,6 @@ class SqlRoutines(object):
             cols_def += " , \"p_cre_date\" \n"
 
         return cols_def
-
-    def get_create_incremental_table_query(self, columns_def, table):
-        query = ""
-
-        query += " CREATE TABLE "
-        query += "\"" + self._schema.lower() + "\""
-        query += "."
-        query += "\"" + table.lower() + "\""
-        query += "\n(\n"
-        # the second 'table' parameter is pointless
-        query += self.get_columns_def(columns_def, table, table)
-        query += ")"
-        query += " WITH (appendonly=true, orientation=row, compresstype=quicklz)"
-
-        logging.debug("get_create_incremental_table_query - \n" + query)
-        return query
 
     def get_create_external_table_query(self, columns_def, table):
         query = ""
@@ -575,18 +542,3 @@ class SqlRoutines(object):
         self.drop_table(ext_table, external=True)
         self._db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.debug("External table recreated: {table_name}".format(table_name=ext_table))
-
-    # this function will not be needed, as the datamodel will handle table creations
-    def create_dwh_full_tables_if_needed(self, table, sql_queries_map):
-        if not self.table_exists("h_" + table):
-            self._db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
-            self._db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
-            return True
-        return False
-
-    def create_dwh_incremantal_tables_if_needed(self, table, metadata_for_table):
-        if not self.table_exists(table):
-            sql = self.get_create_incremental_table_query(metadata_for_table, table)
-            self._db.execute_non_query_in_transaction(sql)
-            return True
-        return False
