@@ -88,7 +88,20 @@ mkdir -p %{buildroot}/var/log/insight-gpfdist/
 # noop
 
 %pre
-# noop
+case "$1" in
+  1)
+    # This is an initial install. Nothing to do.
+    true
+  ;;
+  2)
+    # This is an upgrade.
+    LOADTABLES_LOCKFILE=/tmp/PI_ImportTables_prod.flock
+
+    echo "--> Waiting for loadtables to finish"
+    # Wait with flock for the loadtables to finish
+    flock ${LOADTABLES_LOCKFILE} echo "<-- Loadtables finished"
+  ;;
+esac
 
 %post
 # Python3 and pip3 is installed by palette-insight-toolkit
@@ -99,7 +112,8 @@ mkdir -p /data/insight-server/uploads/palette/processing
 chown -R insight:insight /data/insight-server/uploads
 
 # Detect new service
-service supervisord restart
+supervisorctl reread
+supervisorctl update
 
 # (Re)start insight-gpfdist via supervisord
 supervisorctl restart insight-gpfdist
@@ -146,7 +160,7 @@ case "$1" in
   1)
     # This is an upgrade.
     # Do nothing.
-    :
+    true
   ;;
 esac
 
