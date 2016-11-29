@@ -88,7 +88,11 @@ mkdir -p %{buildroot}/var/log/insight-gpfdist/
 # noop
 
 %pre
-# noop
+LOADTABLES_LOCKFILE=/tmp/PI_ImportTables_prod.flock
+
+echo "--> Waiting for loadtables to finish"
+# Wait with flock for the loadtables to finish
+flock ${LOADTABLES_LOCKFILE} echo "<-- Loadtables finished"
 
 %post
 # Python3 and pip3 is installed by palette-insight-toolkit
