@@ -25,42 +25,6 @@ class SqlRoutines(object):
         params = {'schema': self._schema, 'table': table}
         return self._db.execute_in_transaction(sql, params)
 
-    def gen_alter_cols_because_of_metadata_change(self, table, columns_def, incremental=True):
-        # TODO type also should be checked
-        sql_alter_stmts = []
-        table_prefix = "h_" if not incremental else ""
-        cols_def_from_db = self.get_table_columns_def_from_db(table_prefix + table)
-
-        only_col_names = [cd[2] for cd in cols_def_from_db]
-
-        for col_def in columns_def:
-            if col_def["name"] not in only_col_names:
-                sql_stmt = "ALTER TABLE {schema_name}.{table_type}{table_name} ADD COLUMN " + col_def["name"] + " " + \
-                           col_def["type"] + "  default null;\n"
-                if incremental:
-                    sql_alter_stmts.append(sql_stmt.format(schema_name=self._schema, table_name=table, table_type=""))
-                else:
-                    sql_alter_stmts.append(sql_stmt.format(schema_name=self._schema, table_name=table, table_type="s_"))
-                    sql_alter_stmts.append(sql_stmt.format(schema_name=self._schema, table_name=table, table_type="h_"))
-
-        return sql_alter_stmts
-
-    def table_exists(self, table):
-        sql = """SELECT COALESCE((  select table_name
-                                    from
-                                        information_schema.tables
-                                    where
-                                        lower(table_schema) = lower(%(schema)s) AND
-                                        lower(table_name) = lower(%(table)s)
-                ), 'MISSING_TABLE')"""
-
-        params = {'schema': self._schema, 'table': table}
-        result = self._db.execute_in_transaction(sql, params)
-        if result[0][0] == "MISSING_TABLE":
-            return False
-
-        return True
-
     def get_column_full_type_def(self, type, length, precision):
         query = ""
         column_def = ""
@@ -106,27 +70,16 @@ class SqlRoutines(object):
 
         cols_def = cols_def.lstrip(",")
 
+        # This if-else part should be deleted, because the ext tables
+        # don't need to contain p_cre_date. However, should the
+        # get_create_incremental_table_query function add this column
+        # to its query?
         if type_needed:
             cols_def += " , \"p_cre_date\" timestamp without time zone \n"
         else:
             cols_def += " , \"p_cre_date\" \n"
 
         return cols_def
-
-    def get_create_incremental_table_query(self, columns_def, table):
-        query = ""
-
-        query += " CREATE TABLE "
-        query += "\"" + self._schema.lower() + "\""
-        query += "."
-        query += "\"" + table.lower() + "\""
-        query += "\n(\n"
-        query += self.get_columns_def(columns_def, table, table)
-        query += ")"
-        query += " WITH (appendonly=true, orientation=row, compresstype=quicklz)"
-
-        logging.debug("get_create_incremental_table_query - \n" + query)
-        return query
 
     def get_create_external_table_query(self, columns_def, table):
         query = ""
@@ -259,6 +212,7 @@ class SqlRoutines(object):
         colPK_JOIN_IN_ON_Template = "h_#TABLE.#PK_PART=s_#TABLE.#PK_PART"
         colPK_JOIN_IN_WHERE_Template = "h_#TABLE.#PK_PART=t.#PK_PART"
 
+        # why declare empty strings if they are overwritten?
         colSCD_ActPrevListWithoutTypes_String = ""
         colSCD_ActPrevListWithTypes_String = ""
         colSCD_SqlType_String = ""
@@ -381,6 +335,8 @@ class SqlRoutines(object):
                                                                                                                 pk_part).replace(
                             "#DATA_TYPE",
                             self.get_column_full_type_def(column["type"], column["length"], column["precision"]))
+                        # This replace is pointless, the previous replace eliminated every #COL appearance
+                        # (and this replace wants to replace #COL with the same thing)
                         strSQL_TYPE = colSCD_SqlType_String.replace("#COL", pk_part)
                         strACT_PREV_DEF = strACT_PREV_DEF + "    s_#TABLE.#COL".replace("#TABLE", table).replace("#COL",
                                                                                                                  pk_part)
@@ -586,20 +542,3 @@ class SqlRoutines(object):
         self.drop_table(ext_table, external=True)
         self._db.execute_non_query_in_transaction(ext_table_create_sql)
         logging.debug("External table recreated: {table_name}".format(table_name=ext_table))
-
-    def alter_dwh_table_if_needed(self, alter_list):
-        self._db.execute_non_query_in_transaction(alter_list)
-
-    def create_dwh_full_tables_if_needed(self, table, sql_queries_map):
-        if not self.table_exists("h_" + table):
-            self._db.execute_non_query_in_transaction(sql_queries_map["DWHtableCreate"])
-            self._db.execute_non_query_in_transaction(sql_queries_map["StageFullCreate"])
-            return True
-        return False
-
-    def create_dwh_incremantal_tables_if_needed(self, table, metadata_for_table):
-        if not self.table_exists(table):
-            sql = self.get_create_incremental_table_query(metadata_for_table, table)
-            self._db.execute_non_query_in_transaction(sql)
-            return True
-        return False
