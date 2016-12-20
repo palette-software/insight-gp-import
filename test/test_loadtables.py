@@ -120,3 +120,11 @@ class TestLoadtables(TestCase):
                                                                        [])
         self.assertEqual(0, len(result_metadata))
         self.assertEqual(0, len(result_error))
+
+    def test_common_metadata_output_type_matches_input_type(self):
+        metadata_clone = list(self.metadata_from_db_for_users)
+        result_metadata, result_error = loadtables.get_common_metadata(self.metadata_from_db_for_users,
+                                                                       metadata_clone)
+
+        self.assertEqual(0, len(result_error))
+        self.assertListEqual(result_metadata, metadata_clone)
