@@ -40,13 +40,27 @@ def list_files_from_folder(folder_path, filename_pattern, sort_order):
 
 
 def get_common_metadata(metadata_db, metadata_csv):
-    result = []
-    for column_csv in metadata_csv:
-        for column_db in metadata_db:
-            if column_csv['table'] == column_db['table'] \
-                    and column_csv['name'] == column_db['name']:
-                result.append(column_db)
-    return result
+    """
+    The DB can contain more columns than the CSV files (older Tableau verison). The function returns the columns
+    need to be loaded.
+    :param metadata_db: Metadata from DB column definitons
+    :param metadata_csv: Metadata from Tableau metadata CSV files
+    :return: a tuple of common column definitions and column definitions missing from the DB
+    """
+    # We accept only column definitions for the same table
+    if len(metadata_csv) == 0 or len(metadata_db) == 0 or metadata_csv[0]['table'] != metadata_db[0]['table']:
+        return [], list(metadata_csv)
+
+    column_name_set_csv = set([column['name'] for column in metadata_csv])
+    column_name_set_db = set([column['name'] for column in metadata_db])
+
+    common_columns = column_name_set_csv.intersection(column_name_set_db)
+    missing_columns = column_name_set_csv.difference(column_name_set_db)
+
+    result = [item for item in metadata_csv if item['name'] in common_columns]
+    missing_from_db = [item for item in metadata_csv if item['name'] in missing_columns]
+
+    return result, missing_from_db
 
 
 # TODO rewrite after list_files_from_folder rewrite

@@ -21,7 +21,7 @@ class TestLoadtables(TestCase):
             {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
              'length': 0, 'table': 'users'}]
 
-        self.metadata_form_db_for_users = [
+        self.metadata_from_db_for_users = [
             {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
              'table': 'users'},
             {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
@@ -63,17 +63,20 @@ class TestLoadtables(TestCase):
         mock_sql_routines.insert_data_from_external_table.assert_called_with(None, 'ext_threadinfo', 'threadinfo')
 
     def test_common_metadata_size(self):
-        result_metadata = loadtables.get_common_metadata(self.metadata_form_db_for_users,
-                                                         self.metadata_from_csv_for_users)
+        result_metadata, result_error = loadtables.get_common_metadata(self.metadata_from_db_for_users,
+                                                                       self.metadata_from_csv_for_users)
 
         self.assertEqual(2, len(result_metadata))
+        self.assertEqual(1, len(result_error))
 
     def test_common_metadata_item_names_are_in_both_metadata(self):
-        result_metadata = loadtables.get_common_metadata(self.metadata_form_db_for_users,
-                                                         self.metadata_from_csv_for_users)
+        result_metadata, result_error = loadtables.get_common_metadata(self.metadata_from_db_for_users,
+                                                                       self.metadata_from_csv_for_users)
 
         result_column_names = set([item["name"] for item in result_metadata])
+        result_error_column_names = set([item["name"] for item in result_error])
         self.assertSetEqual(set(('id', 'licensing_role_id')), result_column_names)
+        self.assertSetEqual(set(('login_at',)), result_error_column_names)
 
     def test_common_metadata_check_only_same_table(self):
         metadata_oldusers = [
@@ -84,10 +87,11 @@ class TestLoadtables(TestCase):
             {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
              'length': 0, 'table': 'oldusers'}]
 
-        result_metadata = loadtables.get_common_metadata(metadata_oldusers,
-                                                         self.metadata_from_csv_for_users)
+        result_metadata, result_error = loadtables.get_common_metadata(metadata_oldusers,
+                                                                       self.metadata_from_csv_for_users)
 
         self.assertEqual(0, len(result_metadata))
+        self.assertEqual(3, len(result_error))
 
     def test_common_metadata_column_types_do_not_matter(self):
         metadata_oldusers = [
@@ -99,7 +103,20 @@ class TestLoadtables(TestCase):
             {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'double precision',
              'length': 0, 'table': 'users'}]
 
-        result_metadata = loadtables.get_common_metadata(metadata_oldusers,
-                                                         self.metadata_from_csv_for_users)
+        result_metadata, result_error = loadtables.get_common_metadata(metadata_oldusers,
+                                                                       self.metadata_from_csv_for_users)
 
         self.assertEqual(3, len(result_metadata))
+        self.assertEqual(0, len(result_error))
+
+    def test_common_metadata_empty_metadata_in_db(self):
+        result_metadata, result_error = loadtables.get_common_metadata([],
+                                                                       self.metadata_from_csv_for_users)
+        self.assertEqual(0, len(result_metadata))
+        self.assertEqual(3, len(result_error))
+
+    def test_common_metadata_empty_metadata_in_csv(self):
+        result_metadata, result_error = loadtables.get_common_metadata(self.metadata_from_db_for_users,
+                                                                       [])
+        self.assertEqual(0, len(result_metadata))
+        self.assertEqual(0, len(result_error))
