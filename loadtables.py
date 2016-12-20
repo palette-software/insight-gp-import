@@ -3,7 +3,7 @@ import logging.handlers
 import yaml
 import sys
 import gzip
-from sql_routines import  SqlRoutines
+from sql_routines import SqlRoutines
 from database import Database
 import os
 import re
@@ -124,12 +124,12 @@ def get_metadata_from_db(table, sql_routines):
     attnum_i = 1
     for schemaname, tablename, columnname, format_type, attnum in column_def:
         column = {'schema': schemaname,
-                'table': tablename,
-                'name': columnname,
-                'type': format_type,
-                'attnum': attnum_i,
-                'length': 0,
-                'precision': 0}
+                  'table': tablename,
+                  'name': columnname,
+                  'type': format_type,
+                  'attnum': attnum_i,
+                  'length': 0,
+                  'precision': 0}
         if columnname not in technical_cols:
             metadata_from_table.append(column)
             attnum_i += 1
@@ -139,6 +139,7 @@ def get_metadata_from_db(table, sql_routines):
 def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, full_match=False):
     def is_limit_reached(limit):
         return limit >= 6000
+
     from_path = os.path.join(storage_path, f_from)
     file_move_cnt = 0
 
