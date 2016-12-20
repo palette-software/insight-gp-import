@@ -43,12 +43,14 @@ def get_common_metadata(metadata_db, metadata_csv):
     """
     The DB can contain more columns than the CSV files (older Tableau verison). The function returns the columns
     need to be loaded.
+    Only column definitions for the same table are expected
+
     :param metadata_db: Metadata from DB column definitons
     :param metadata_csv: Metadata from Tableau metadata CSV files
     :return: a tuple of common column definitions and column definitions missing from the DB
     """
-    # We accept only column definitions for the same table
-    if len(metadata_csv) == 0 or len(metadata_db) == 0 or metadata_csv[0]['table'] != metadata_db[0]['table']:
+
+    if len(metadata_csv) == 0 or len(metadata_db) == 0:
         return [], list(metadata_csv)
 
     column_name_set_csv = set([column['name'] for column in metadata_csv])
@@ -283,8 +285,16 @@ def handle_full_tables(config, metadata_from_csv, sql_routines):
             metadata_from_csv_for_table = metadata_from_csv[table]
 
             metadata_from_db_for_table = get_metadata_from_db("h_" + table, sql_routines)
+
+            logging.debug("Table '{}' metadata from Tableau: {}".format(table, metadata_from_csv_for_table))
+            logging.debug("Table '{}' metadata from DB: {}".format(table, metadata_from_db_for_table))
+
             common_metadata_for_table, common_metadata_error = get_common_metadata(metadata_from_db_for_table,
                                                                                    metadata_from_csv_for_table)
+
+            logging.debug("Table '{}' common metadata: {}".format(table, common_metadata_for_table))
+            logging.debug("Table '{}' common metadata errors: {}".format(table, common_metadata_error))
+
             for errors in common_metadata_error:
                 logging.warning(
                     "The column '{}' in table '{}' has no matching counterpart in DB".format(errors['name'],

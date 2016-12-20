@@ -14,20 +14,20 @@ class TestLoadtables(TestCase):
         ]
 
         self.metadata_from_csv_for_users = [
-            {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
-             'table': 'users'},
-            {'attnum': '2', 'precision': 0, 'schema': 'public', 'name': 'login_at',
-             'type': 'timestamp without time zone', 'length': 0, 'table': 'users'},
-            {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
-             'length': 0, 'table': 'users'}]
+            {'name': 'id', 'precision': 0, 'type': 'integer', 'length': 0, 'table': 'users', 'schema': 'public',
+             'attnum': '1'},
+            {'name': 'login_at', 'precision': 0, 'type': 'timestamp without time zone', 'length': 0, 'table': 'users',
+             'schema': 'public', 'attnum': '2'},
+            {'name': 'licensing_role_id', 'precision': 0, 'type': 'integer', 'length': 0, 'table': 'users',
+             'schema': 'public', 'attnum': '3'}]
 
         self.metadata_from_db_for_users = [
-            {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
-             'table': 'users'},
-            {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
-             'length': 0, 'table': 'users'},
-            {'attnum': '4', 'precision': 0, 'schema': 'public', 'name': 'nonce', 'type': 'character varying(32)',
-             'length': 0, 'table': 'users'}]
+            {'name': 'id', 'precision': 0, 'type': 'integer', 'length': 0, 'table': 'h_users', 'schema': 'palette',
+             'attnum': 1},
+            {'name': 'licensing_role_id', 'precision': 0, 'type': 'integer', 'length': 0, 'table': 'h_users',
+             'schema': 'palette', 'attnum': 3},
+            {'name': 'nonce', 'precision': 0, 'type': 'character varying(32)', 'length': 0, 'table': 'h_users',
+             'schema': 'palette', 'attnum': 4}]
 
     def fake_list_files_from_folder(self, folder_path, filename_pattern, sort_order):
         return [f for f in self.csv_files if f.startswith(filename_pattern)]
@@ -78,7 +78,7 @@ class TestLoadtables(TestCase):
         self.assertSetEqual(set(('id', 'licensing_role_id')), result_column_names)
         self.assertSetEqual(set(('login_at',)), result_error_column_names)
 
-    def test_common_metadata_check_only_same_table(self):
+    def test_common_metadata_not_only_same_table(self):
         metadata_oldusers = [
             {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
              'table': 'oldusers'},
@@ -90,8 +90,8 @@ class TestLoadtables(TestCase):
         result_metadata, result_error = loadtables.get_common_metadata(metadata_oldusers,
                                                                        self.metadata_from_csv_for_users)
 
-        self.assertEqual(0, len(result_metadata))
-        self.assertEqual(3, len(result_error))
+        self.assertEqual(3, len(result_metadata))
+        self.assertEqual(0, len(result_error))
 
     def test_common_metadata_column_types_do_not_matter(self):
         metadata_oldusers = [
