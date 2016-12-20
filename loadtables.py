@@ -41,11 +41,11 @@ def list_files_from_folder(folder_path, filename_pattern, sort_order):
 
 def get_common_metadata(metadata_db, metadata_csv):
     """
-    The DB can contain more columns than the CSV files (older Tableau verison). The function returns the columns
+    The DB can contain more columns than the CSV files (older Tableau version). The function returns the columns
     need to be loaded.
     Only column definitions for the same table are expected
 
-    :param metadata_db: Metadata from DB column definitons
+    :param metadata_db: Metadata from DB column definitions
     :param metadata_csv: Metadata from Tableau metadata CSV files
     :return: a tuple of common column definitions and column definitions missing from the DB
     """
