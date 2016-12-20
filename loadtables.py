@@ -243,7 +243,7 @@ def handle_incremental_tables(config, metadata, sql_routines):
     logging.info("End loading incremental tables.")
 
 
-def handle_full_tables(config, metadata, sql_routines):
+def handle_full_tables(config, metadata_from_csv, sql_routines):
     logging.info("Start loading full tables.")
 
     schema = config["Schema"]
@@ -255,11 +255,11 @@ def handle_full_tables(config, metadata, sql_routines):
             table = item["name"]
 
             logging.debug("Start processing table: {}".format(table))
-            metadata_for_table = metadata[table]
-            sql_queries_map = sql_routines.getSQL(metadata_for_table, table, "yes", item["pk"], None)
+            metadata_from_csv_for_table = metadata_from_csv[table]
+            sql_queries_map = sql_routines.getSQL(metadata_from_csv_for_table, table, "yes", item["pk"], None)
             chk_multipart_scd_filenames_in_uploads_folder(table)
 
-            adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_for_table, table, sql_routines)
+            adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_from_csv_for_table, table, sql_routines)
 
             # in case some files were stuck here from prev. run
             move_files_between_folders(data_path, "processing", "retry", table)
@@ -270,10 +270,10 @@ def handle_full_tables(config, metadata, sql_routines):
             for file in file_list:
                 try:
                     move_files_between_folders(data_path, "uploads", "processing", file, True)
-                    sql_routines.load_data_from_external_table(metadata_for_table, table)
+                    sql_routines.load_data_from_external_table(metadata_from_csv_for_table, table)
                     scd_date = parse_datetime(file)
-                    metadata_from_table = get_metadata_from_db("h_" + table, sql_routines)
-                    sql_routines.apply_scd(metadata_from_table, table, scd_date, item["pk"])
+                    metadata_from_db = get_metadata_from_db("h_" + table, sql_routines)
+                    sql_routines.apply_scd(metadata_from_db, table, scd_date, item["pk"])
                     move_files_between_folders(data_path, "processing", "archive", table)
                 except Exception as e:
                     logging.error(
