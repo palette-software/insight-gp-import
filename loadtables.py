@@ -39,6 +39,16 @@ def list_files_from_folder(folder_path, filename_pattern, sort_order):
     return sorted_file_list
 
 
+def get_common_metadata(metadata_db, metadata_csv):
+    result = []
+    for column_csv in metadata_csv:
+        for column_db in metadata_db:
+            if column_csv['table'] == column_db['table'] \
+                    and column_csv['name'] == column_db['name']:
+                result.append(column_db)
+    return result
+
+
 # TODO rewrite after list_files_from_folder rewrite
 def get_latest_metadata_file(storage_path):
     uploads_path = os.path.join(storage_path, 'uploads')

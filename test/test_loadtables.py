@@ -13,6 +13,22 @@ class TestLoadtables(TestCase):
             'customized_views-2016-09-26--19-25-38--seq0000--part0000-csv-09-26--19-25-2fcebfb5db9d5da71e7be685433f3f98.csv.gz'
         ]
 
+        self.metadata_from_csv_for_users = [
+            {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
+             'table': 'users'},
+            {'attnum': '2', 'precision': 0, 'schema': 'public', 'name': 'login_at',
+             'type': 'timestamp without time zone', 'length': 0, 'table': 'users'},
+            {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
+             'length': 0, 'table': 'users'}]
+
+        self.metadata_form_db_for_users = [
+            {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
+             'table': 'users'},
+            {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
+             'length': 0, 'table': 'users'},
+            {'attnum': '4', 'precision': 0, 'schema': 'public', 'name': 'nonce', 'type': 'character varying(32)',
+             'length': 0, 'table': 'users'}]
+
     def fake_list_files_from_folder(self, folder_path, filename_pattern, sort_order):
         return [f for f in self.csv_files if f.startswith(filename_pattern)]
 
@@ -36,7 +52,7 @@ class TestLoadtables(TestCase):
             'threadinfo': None,
             'async_jobs': None,
         }
-        
+
         mock_sql_routines.create_dwh_incremantal_tables_if_needed.return_value = False
         mock_list_files.side_effect = self.fake_list_files_from_folder
         mock_move_files.side_effect = self.fake_move_files_between_folders
@@ -45,3 +61,45 @@ class TestLoadtables(TestCase):
 
         # Not called for async_jobs (no files) and customized_views (not in config)
         mock_sql_routines.insert_data_from_external_table.assert_called_with(None, 'ext_threadinfo', 'threadinfo')
+
+    def test_common_metadata_size(self):
+        result_metadata = loadtables.get_common_metadata(self.metadata_form_db_for_users,
+                                                         self.metadata_from_csv_for_users)
+
+        self.assertEqual(2, len(result_metadata))
+
+    def test_common_metadata_item_names_are_in_both_metadata(self):
+        result_metadata = loadtables.get_common_metadata(self.metadata_form_db_for_users,
+                                                         self.metadata_from_csv_for_users)
+
+        result_column_names = set([item["name"] for item in result_metadata])
+        self.assertSetEqual(set(('id', 'licensing_role_id')), result_column_names)
+
+    def test_common_metadata_check_only_same_table(self):
+        metadata_oldusers = [
+            {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
+             'table': 'oldusers'},
+            {'attnum': '2', 'precision': 0, 'schema': 'public', 'name': 'login_at',
+             'type': 'timestamp without time zone', 'length': 0, 'table': 'oldusers'},
+            {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'integer',
+             'length': 0, 'table': 'oldusers'}]
+
+        result_metadata = loadtables.get_common_metadata(metadata_oldusers,
+                                                         self.metadata_from_csv_for_users)
+
+        self.assertEqual(0, len(result_metadata))
+
+    def test_common_metadata_column_types_do_not_matter(self):
+        metadata_oldusers = [
+            {'attnum': '1', 'precision': 0, 'schema': 'public', 'name': 'id', 'type': 'integer', 'length': 0,
+             'table': 'users'},
+            {'attnum': '2', 'precision': 0, 'schema': 'public', 'name': 'login_at',
+             'type': 'timestamp without time zone', 'length': 0, 'table': 'users'},
+            # It is double
+            {'attnum': '3', 'precision': 0, 'schema': 'public', 'name': 'licensing_role_id', 'type': 'double precision',
+             'length': 0, 'table': 'users'}]
+
+        result_metadata = loadtables.get_common_metadata(metadata_oldusers,
+                                                         self.metadata_from_csv_for_users)
+
+        self.assertEqual(3, len(result_metadata))
