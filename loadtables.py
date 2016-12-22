@@ -289,16 +289,16 @@ def handle_full_tables(config, metadata_from_csv, sql_routines):
             logging.debug("Table '{}' metadata from Tableau: {}".format(table, metadata_from_csv_for_table))
             logging.debug("Table '{}' metadata from DB: {}".format(table, metadata_from_db_for_table))
 
-            common_metadata_for_table, common_metadata_error = get_common_metadata(metadata_from_db_for_table,
+            common_metadata_for_table, non_matching_metadata = get_common_metadata(metadata_from_db_for_table,
                                                                                    metadata_from_csv_for_table)
 
             logging.debug("Table '{}' common metadata: {}".format(table, common_metadata_for_table))
-            logging.debug("Table '{}' common metadata errors: {}".format(table, common_metadata_error))
+            logging.debug("Table '{}' common metadata errors: {}".format(table, non_matching_metadata))
 
-            for errors in common_metadata_error:
-                logging.warning(
-                    "The column '{}' in table '{}' has no matching counterpart in DB".format(errors['name'],
-                                                                                             errors['table']))
+            for column_definition in non_matching_metadata:
+                logging.error(
+                    "The column '{}' in table '{}' has no matching counterpart in DB".format(column_definition['name'],
+                                                                                             column_definition['table']))
 
             sql_routines.getSQL(common_metadata_for_table, table, "yes", item["pk"], None)
             chk_multipart_scd_filenames_in_uploads_folder(table)
