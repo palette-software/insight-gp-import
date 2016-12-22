@@ -3,7 +3,7 @@ import logging.handlers
 import yaml
 import sys
 import gzip
-from sql_routines import  SqlRoutines
+from sql_routines import SqlRoutines
 from database import Database
 import os
 import re
@@ -37,6 +37,32 @@ def list_files_from_folder(folder_path, filename_pattern, sort_order):
         sorted_file_list.sort(reverse=True)
 
     return sorted_file_list
+
+
+def get_common_metadata(metadata_db, metadata_csv):
+    """
+    The DB can contain more columns than the CSV files (older Tableau version). The function returns the columns
+    need to be loaded.
+    Only column definitions for the same table are expected
+
+    :param metadata_db: Metadata from DB column definitions
+    :param metadata_csv: Metadata from Tableau metadata CSV files
+    :return: a tuple of common column definitions and column definitions missing from the DB
+    """
+
+    if len(metadata_csv) == 0 or len(metadata_db) == 0:
+        return [], list(metadata_csv)
+
+    column_name_set_csv = set([column['name'] for column in metadata_csv])
+    column_name_set_db = set([column['name'] for column in metadata_db])
+
+    common_columns = column_name_set_csv.intersection(column_name_set_db)
+    missing_columns = column_name_set_csv.difference(column_name_set_db)
+
+    result = [item for item in metadata_csv if item['name'] in common_columns]
+    missing_from_db = [item for item in metadata_csv if item['name'] in missing_columns]
+
+    return result, missing_from_db
 
 
 # TODO rewrite after list_files_from_folder rewrite
@@ -124,12 +150,12 @@ def get_metadata_from_db(table, sql_routines):
     attnum_i = 1
     for schemaname, tablename, columnname, format_type, attnum in column_def:
         column = {'schema': schemaname,
-                'table': tablename,
-                'name': columnname,
-                'type': format_type,
-                'attnum': attnum_i,
-                'length': 0,
-                'precision': 0}
+                  'table': tablename,
+                  'name': columnname,
+                  'type': format_type,
+                  'attnum': attnum_i,
+                  'length': 0,
+                  'precision': 0}
         if columnname not in technical_cols:
             metadata_from_table.append(column)
             attnum_i += 1
@@ -139,6 +165,7 @@ def get_metadata_from_db(table, sql_routines):
 def move_files_between_folders(storage_path, f_from, f_to, filename_pattern, full_match=False):
     def is_limit_reached(limit):
         return limit >= 6000
+
     from_path = os.path.join(storage_path, f_from)
     file_move_cnt = 0
 
@@ -214,7 +241,7 @@ def processing_retry_folder(storage_path, table, metadata_for_table, sql_routine
     logging.info("End processing retry folder for table: {}".format(table))
 
 
-def handle_incremental_tables(config, metadata, sql_routines):
+def handle_incremental_tables(config, metadata_from_csv, sql_routines):
     logging.info("Start loading incremental tables.")
 
     data_path = config["storage_path"]
@@ -223,13 +250,13 @@ def handle_incremental_tables(config, metadata, sql_routines):
 
             logging.debug("Start processing table: {}".format(table))
 
-            metadata_for_table = metadata[table]
-            processing_retry_folder(data_path, table, metadata_for_table, sql_routines)
+            metadata_from_csv_for_table = metadata_from_csv[table]
+            processing_retry_folder(data_path, table, metadata_from_csv_for_table, sql_routines)
 
-            adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_for_table, table, sql_routines)
+            adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_from_csv_for_table, table, sql_routines)
             if move_files_between_folders(data_path, "uploads", "processing", table) > 0:
                 sql_routines.manage_partitions(table)
-                sql_routines.insert_data_from_external_table(metadata_for_table, "ext_" + table, table)
+                sql_routines.insert_data_from_external_table(metadata_from_csv_for_table, "ext_" + table, table)
                 move_files_between_folders(data_path, "processing", "archive", table)
             else:
                 logging.debug("No file found for {}".format(table))
@@ -243,7 +270,7 @@ def handle_incremental_tables(config, metadata, sql_routines):
     logging.info("End loading incremental tables.")
 
 
-def handle_full_tables(config, metadata, sql_routines):
+def handle_full_tables(config, metadata_from_csv, sql_routines):
     logging.info("Start loading full tables.")
 
     schema = config["Schema"]
@@ -255,11 +282,28 @@ def handle_full_tables(config, metadata, sql_routines):
             table = item["name"]
 
             logging.debug("Start processing table: {}".format(table))
-            metadata_for_table = metadata[table]
-            sql_queries_map = sql_routines.getSQL(metadata_for_table, table, "yes", item["pk"], None)
+            metadata_from_csv_for_table = metadata_from_csv[table]
+
+            metadata_from_db_for_table = get_metadata_from_db("h_" + table, sql_routines)
+
+            logging.debug("Table '{}' metadata from Tableau: {}".format(table, metadata_from_csv_for_table))
+            logging.debug("Table '{}' metadata from DB: {}".format(table, metadata_from_db_for_table))
+
+            common_metadata_for_table, non_matching_metadata = get_common_metadata(metadata_from_db_for_table,
+                                                                                   metadata_from_csv_for_table)
+
+            logging.debug("Table '{}' common metadata: {}".format(table, common_metadata_for_table))
+            logging.debug("Table '{}' common metadata errors: {}".format(table, non_matching_metadata))
+
+            for column_definition in non_matching_metadata:
+                logging.error(
+                    "The column '{}' in table '{}' has no matching counterpart in DB".format(column_definition['name'],
+                                                                                             column_definition['table']))
+
+            sql_routines.getSQL(common_metadata_for_table, table, "yes", item["pk"], None)
             chk_multipart_scd_filenames_in_uploads_folder(table)
 
-            adjust_table_to_metadata(config["gpfdist_addr"], False, metadata_for_table, table, sql_routines)
+            adjust_table_to_metadata(config["gpfdist_addr"], False, common_metadata_for_table, table, sql_routines)
 
             # in case some files were stuck here from prev. run
             move_files_between_folders(data_path, "processing", "retry", table)
@@ -270,10 +314,10 @@ def handle_full_tables(config, metadata, sql_routines):
             for file in file_list:
                 try:
                     move_files_between_folders(data_path, "uploads", "processing", file, True)
-                    sql_routines.load_data_from_external_table(metadata_for_table, table)
+                    sql_routines.load_data_from_external_table(common_metadata_for_table, table)
                     scd_date = parse_datetime(file)
-                    metadata_from_table = get_metadata_from_db("h_" + table, sql_routines)
-                    sql_routines.apply_scd(metadata_from_table, table, scd_date, item["pk"])
+
+                    sql_routines.apply_scd(common_metadata_for_table, table, scd_date, item["pk"])
                     move_files_between_folders(data_path, "processing", "archive", table)
                 except Exception as e:
                     logging.error(
