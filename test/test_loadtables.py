@@ -62,6 +62,29 @@ class TestLoadtables(TestCase):
         # Not called for async_jobs (no files) and customized_views (not in config)
         mock_sql_routines.insert_data_from_external_table.assert_called_with(None, 'ext_threadinfo', 'threadinfo')
 
+    @patch('loadtables.adjust_table_to_metadata')
+    @patch('loadtables.get_metadata_from_db')
+    @patch('sql_routines.SqlRoutines')
+    def test_handle_full_tables(self, mock_sql_routines, mock_meta_from_db, mock_adjust):
+        config = {
+            'Schema': None,
+            "storage_path": "/fake",
+            'gpfdist_addr': None,
+            "Tables": {
+                "Full": [
+                    {
+                        'name': 'users',
+                        'pk': None
+                    }
+                ]
+            }
+        }
+        metadata = {
+            'users': self.metadata_from_csv_for_users
+        }
+        mock_meta_from_db.return_value=self.metadata_from_csv_for_users
+        loadtables.handle_full_tables(config, metadata, mock_sql_routines)
+
     def test_common_metadata_size(self):
         result_metadata, result_error = loadtables.get_common_metadata(self.metadata_from_db_for_users,
                                                                        self.metadata_from_csv_for_users)
