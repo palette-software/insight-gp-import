@@ -1,3 +1,7 @@
+# Palette Insight Architecture
+
+![Palette Insight Architecture](https://github.com/palette-software/palette-insight/blob/master/insight-system-diagram.png?raw=true)
+
 # Palette Insight LoadTables
 [Insight Server]: https://github.com/palette-software/insight-server
 [Palette database schema]: rpm-build/opt/insight-gp-import/init_palette_schema.sql
