@@ -11,7 +11,7 @@ In this project you will find:
 
 - the [supervisord](http://supervisord.org/) configuration
  [file](rpm-build/etc/supervisord.d/insight-gpfdist.ini) for the
- [gpfdist](http://gpdb.docsuu.pivotal.io/4340/utility_guide/admin_utilities/gpfdist.html)
+ [gpfdist](http://gpdb.docs.pivotal.io/4340/utility_guide/admin_utilities/gpfdist.html)
  service of Greenplum Database which serves the CSV files of the [Insight Server].
 - the initialization script of the [Palette database schema]
 - the LoadTables service which imports the [tables](rpm-build/etc/palette-insight-server/gp-import-config.yml)
