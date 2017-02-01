@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/palette-software/insight-gp-import.svg?branch=master)](https://travis-ci.org/palette-software/insight-gp-import)
+
 # Palette Insight Architecture
 
 ![Palette Insight Architecture](https://github.com/palette-software/palette-insight/blob/master/insight-system-diagram.png?raw=true)
