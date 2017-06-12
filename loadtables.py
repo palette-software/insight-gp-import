@@ -296,7 +296,7 @@ def handle_full_tables(config, metadata_from_csv, sql_routines):
             logging.debug("Table '{}' common metadata errors: {}".format(table, non_matching_metadata))
 
             for column_definition in non_matching_metadata:
-                logging.error(
+                logging.info(
                     "The column '{}' in table '{}' has no matching counterpart in DB".format(column_definition['name'],
                                                                                              column_definition['table']))
 
