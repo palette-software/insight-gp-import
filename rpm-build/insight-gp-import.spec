@@ -75,7 +75,7 @@ mkdir -p %{buildroot}/var/log/insight-gpfdist/
 # with "/", then make sure paths with spaces are quoted.
 # /usr/local/bin/palette-insight-server
 /opt/insight-gp-import
-/etc/supervisord.d
+/etc/supervisord.d/insight-gpfdist.ini
 %attr(-,gpadmin,gpadmin) /tmp/create_external_dummy_table.sql
 %dir /var/log/insight-gp-import
 %dir /var/log/insight-gpfdist
