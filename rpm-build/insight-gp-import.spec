@@ -1,5 +1,4 @@
 %define serviceuser insight
-%define servicehome /etc/palette-insight-server
 
 
 # Disable the stupid stuff rpm distros include in the build process by default:
