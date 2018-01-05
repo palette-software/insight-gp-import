@@ -57,8 +57,8 @@ Requires: palette-insight-server >= 400:2.0.0
 %description
 Palette Insight GP Import
 
-%prep
-# noop
+%pre
+rpm -q palette-insight-toolkit palette-greenplum-installer palette-supervisor palette-insight-server
 
 %build
 # noop
