@@ -57,8 +57,8 @@ Requires: palette-insight-server >= 400:2.0.0
 %description
 Palette Insight GP Import
 
-%pre
-rpm -q palette-insight-toolkit palette-greenplum-installer palette-supervisor palette-insight-server
+%prep
+# noop
 
 %build
 # noop
@@ -87,6 +87,9 @@ mkdir -p %{buildroot}/var/log/insight-gpfdist/
 # noop
 
 %pre
+# Stop if required palette packages are not installed
+rpm -q palette-insight-toolkit palette-greenplum-installer palette-supervisor palette-insight-server
+
 case "$1" in
   1)
     # This is an initial install. Nothing to do.
