@@ -91,7 +91,7 @@ mkdir -p %{buildroot}/var/log/insight-gpfdist/
 rpm -q palette-insight-toolkit palette-greenplum-installer palette-supervisor palette-insight-server
 REQUIRED_PALETTE_PACKAGES=$?
 if [ $REQUIRED_PALETTE_PACKAGES != 0 ]; then
-    echo "Not all required packages are installed!"
+    echo "Not all required packages are installed for %{name}!"
     exit 1
 fi
 
