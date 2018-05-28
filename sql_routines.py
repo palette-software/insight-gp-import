@@ -94,11 +94,6 @@ class SqlRoutines(object):
         query += " LOCATION ('#EXTERNAL_TABLE') \n"
         query += " FORMAT 'TEXT' \n"
         query += " ( HEADER DELIMITER '\\013' NULL AS '\\\\N' ESCAPE AS '\\\\' \n)"
-        query += "	LOG ERRORS INTO "
-        query += "\"" + self._schema.lower() + "\""
-        query += "."
-        query += "\"ext_error_table\" \n"
-        query += " SEGMENT REJECT LIMIT 1000 ROWS"
 
         logging.debug("getExternalCreateTableQuery - \n" + query)
         return query
