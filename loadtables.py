@@ -251,12 +251,22 @@ def handle_incremental_tables(config, metadata_from_csv, sql_routines):
             logging.debug("Start processing table: {}".format(table))
 
             metadata_from_csv_for_table = metadata_from_csv[table]
-            processing_retry_folder(data_path, table, metadata_from_csv_for_table, sql_routines)
+            metadata_from_db_for_table = get_metadata_from_db(table, sql_routines)
+            logging.debug("Table '{}' metadata from Tableau: {}".format(table, metadata_from_csv_for_table))
+            logging.debug("Table '{}' metadata from DB: {}".format(table, metadata_from_db_for_table))
+            
+            common_metadata_for_table, non_matching_metadata = get_common_metadata(metadata_from_db_for_table,
+                                                                                   metadata_from_csv_for_table)
+
+            logging.debug("Table '{}' common metadata: {}".format(table, common_metadata_for_table))
+            logging.debug("Table '{}' common metadata errors: {}".format(table, non_matching_metadata))
+            
+            processing_retry_folder(data_path, table, common_metadata_for_table, sql_routines)
 
             adjust_table_to_metadata(config["gpfdist_addr"], True, metadata_from_csv_for_table, table, sql_routines)
             if move_files_between_folders(data_path, "uploads", "processing", table) > 0:
                 sql_routines.manage_partitions(table)
-                sql_routines.insert_data_from_external_table(metadata_from_csv_for_table, "ext_" + table, table)
+                sql_routines.insert_data_from_external_table(common_metadata_for_table, "ext_" + table, table)
                 move_files_between_folders(data_path, "processing", "archive", table)
             else:
                 logging.debug("No file found for {}".format(table))
