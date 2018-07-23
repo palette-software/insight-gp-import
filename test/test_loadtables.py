@@ -35,11 +35,13 @@ class TestLoadtables(TestCase):
     def fake_move_files_between_folders(self, storage_path, f_from, f_to, filename_pattern, full_match=False):
         return len(self.fake_list_files_from_folder(None, filename_pattern, None))
 
+    @patch('loadtables.get_common_metadata')
+    @patch('loadtables.get_metadata_from_db')
     @patch('loadtables.adjust_table_to_metadata')
     @patch('sql_routines.SqlRoutines')
     @patch('loadtables.move_files_between_folders')
     @patch('loadtables.list_files_from_folder')
-    def test_handle_incremental_tables(self, mock_list_files, mock_move_files, mock_sql_routines, mock_adjust):
+    def test_handle_incremental_tables(self, mock_list_files, mock_move_files, mock_sql_routines, mock_adjust, mock_get_metadata_from_db, mock_common):
         config = {
             "storage_path": "/fake",
             "Tables": {
@@ -56,6 +58,8 @@ class TestLoadtables(TestCase):
         mock_sql_routines.create_dwh_incremantal_tables_if_needed.return_value = False
         mock_list_files.side_effect = self.fake_list_files_from_folder
         mock_move_files.side_effect = self.fake_move_files_between_folders
+        mock_get_metadata_from_db.return_value = None
+        mock_common.return_value = None, None
 
         loadtables.handle_incremental_tables(config, metadata, mock_sql_routines)
 
